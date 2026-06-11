@@ -36,16 +36,28 @@ jobs:
         env:
           VM_IP: ${{ steps.get-ip.outputs.vm_ip }}
         run: |
-          # Copy files to VM
+          # Deploy to VM
           ssh -i ~/.ssh/gcp_key -o StrictHostKeyChecking=no github-actions@$VM_IP << 'ENDSSH'
             set -e
             
             # Navigate to app directory
             cd /opt/career-ops-backend
             
-            # Pull latest code using GitHub token
-            git config credential.helper store
-            git pull https://charleshor0311:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git main
+            # Configure git if needed
+            if [ ! -d ".git" ]; then
+              echo "Git directory not found, cloning repository..."
+              cd /opt
+              sudo rm -rf career-ops-backend
+              sudo mkdir -p career-ops-backend
+              sudo chown github-actions:github-actions career-ops-backend
+              cd career-ops-backend
+              git clone https://github.com/${{ github.repository }}.git .
+            fi
+            
+            # Pull latest code
+            cd /opt/career-ops-backend
+            git fetch origin main
+            git reset --hard origin/main
             
             # Install/update dependencies
             ~/.local/bin/uv sync
