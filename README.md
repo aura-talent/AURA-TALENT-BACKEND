@@ -74,3 +74,4 @@ curl -s -X POST http://localhost:8000/api/v1/jobs/evaluate \
 - **Ethical guardrails carried over:** scores below 3.5 come back with an explicit recommendation against applying; nothing is ever auto-submitted.
 - **Before charging users:** replace the shared `X-API-Key` with per-user auth (JWT/OAuth), add rate limiting and per-user token metering, and move SQLite to Postgres if you expect concurrency.
 # Test auto-deploy Thu Jun 11 18:36:29 +08 2026
+# Test deployment Thu Jun 11 19:14:24 +08 2026
