@@ -7,8 +7,8 @@ from typing import Optional, TypedDict
 from langgraph.graph import END, START, StateGraph
 
 from ..llm import get_llm
-from ..prompts import RESUME_PARSE_SYSTEM, RESUME_SUGGEST_SYSTEM
-from ..schemas import ParsedResume
+from ..prompts import RESUME_GENERATE_SYSTEM, RESUME_PARSE_SYSTEM, RESUME_SUGGEST_SYSTEM
+from ..schemas import ParsedResume, TailoredResume
 from ..services.jd_fetch import fetch_jd_text
 
 # ── File extraction (pdf / docx / txt / md) ─────────────────────────
@@ -97,3 +97,55 @@ def build_suggest_graph():
 
 
 suggest_graph = build_suggest_graph()
+
+
+# ── Generate graph (full tailored resume for a specific JD) ─────────
+
+
+class GenerateState(TypedDict, total=False):
+    resume_md: str
+    jd_text: Optional[str]
+    jd_url: Optional[str]
+    keywords_hint: Optional[list[str]]
+    extra_instructions: Optional[str]
+    tailored: TailoredResume
+
+
+async def fetch_jd_for_generate(state: GenerateState) -> dict:
+    if state.get("jd_text"):
+        return {}
+    if not state.get("jd_url"):
+        raise ValueError("Provide jd_text or jd_url")
+    return {"jd_text": await fetch_jd_text(state["jd_url"])}
+
+
+async def tailor_resume(state: GenerateState) -> dict:
+    llm = get_llm(temperature=0.3).with_structured_output(TailoredResume)
+    sections = [
+        f"## Master resume\n\n{state['resume_md']}",
+        f"## Target job description\n\n{state['jd_text']}",
+    ]
+    if state.get("keywords_hint"):
+        sections.append(
+            "## ATS keywords from prior evaluation\n\n" + ", ".join(state["keywords_hint"])
+        )
+    if state.get("extra_instructions"):
+        sections.append(f"## Candidate instructions\n\n{state['extra_instructions']}")
+    tailored = await llm.ainvoke([
+        ("system", RESUME_GENERATE_SYSTEM),
+        ("human", "\n\n".join(sections)),
+    ])
+    return {"tailored": tailored}
+
+
+def build_generate_graph():
+    g = StateGraph(GenerateState)
+    g.add_node("fetch_jd", fetch_jd_for_generate)
+    g.add_node("tailor_resume", tailor_resume)
+    g.add_edge(START, "fetch_jd")
+    g.add_edge("fetch_jd", "tailor_resume")
+    g.add_edge("tailor_resume", END)
+    return g.compile()
+
+
+generate_graph = build_generate_graph()

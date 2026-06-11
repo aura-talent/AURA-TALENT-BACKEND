@@ -50,6 +50,12 @@ class ParsedResume(BaseModel):
     target_archetypes: list[str] = []
 
 
+class TailoredResume(BaseModel):
+    tailored_markdown: str = Field(description="Complete rewritten resume in markdown")
+    change_summary: str = Field(description="Markdown bullets: what changed and why")
+    keywords_covered: list[str] = Field(description="JD keywords now present in the resume")
+
+
 # ── API request/response models ─────────────────────────────────────
 
 
@@ -113,6 +119,9 @@ class ScanIn(BaseModel):
     title_keywords: Optional[list[str]] = Field(
         default=None, description="Override positive title filter"
     )
+    location_keywords: Optional[list[str]] = Field(
+        default=None, description="Override positive location filter"
+    )
 
 
 class JobPosting(BaseModel):
@@ -142,6 +151,30 @@ class ApplicationOut(BaseModel):
 class StatusUpdateIn(BaseModel):
     status: str
     notes: Optional[str] = None
+
+
+class GenerateResumeIn(BaseModel):
+    user_id: str
+    jd_text: Optional[str] = None
+    jd_url: Optional[str] = None
+    evaluation_id: Optional[int] = Field(
+        default=None,
+        description="Reuse a previous evaluation's JD URL and keywords instead of jd_text/jd_url",
+    )
+    extra_instructions: Optional[str] = Field(
+        default=None, description="Free-text user guidance, e.g. feedback on a previous draft"
+    )
+
+
+class GenerateResumeOut(BaseModel):
+    tailored_markdown: str
+    change_summary: str = Field(description="Markdown summary of what was changed and why")
+    keywords_covered: list[str] = []
+
+
+class ResumePdfIn(BaseModel):
+    markdown: str = Field(min_length=100, description="Resume markdown to render")
+    filename: Optional[str] = Field(default=None, description="Download filename, without .pdf")
 
 
 class UserIn(BaseModel):

@@ -26,19 +26,46 @@ class LoggingMiddleware:
             except:
                 pass
 
+        # Read the request body fully
         body_bytes = b""
-
-        # Wrap receive to read body bytes as they are consumed by the app
-        async def logging_receive() -> Message:
-            nonlocal body_bytes
-            message = await receive()
-            if message["type"] == "http.request":
+        more_body = True
+        try:
+            while more_body:
+                message = await receive()
+                if message["type"] == "http.disconnect":
+                    break
                 body_bytes += message.get("body", b"")
-            return message
+                more_body = message.get("more_body", False)
+        except Exception as e:
+            logger.warning(f"Error reading request body: {e}")
+
+        # Create a mock receive channel to feed cached body to application.
+        # After replaying the body, delegate to the real receive so streaming
+        # responses only see http.disconnect when the client actually leaves.
+        body_sent = False
+        async def logging_receive() -> Message:
+            nonlocal body_sent
+            if not body_sent:
+                body_sent = True
+                return {"type": "http.request", "body": body_bytes, "more_body": False}
+            return await receive()
+
+        # Log request immediately before processing
+        body_data = None
+        if body_bytes:
+            try:
+                body_data = json.loads(body_bytes)
+            except:
+                body_data = body_bytes.decode("utf-8", errors="ignore")[:500]
+
+        log_request(
+            method=method,
+            path=path,
+            headers=headers,
+            body=body_data
+        )
 
         status_code = [200]
-
-        # Wrap send to intercept response status code
         async def logging_send(message: Message) -> None:
             if message["type"] == "http.response.start":
                 status_code[0] = message["status"]
@@ -46,22 +73,7 @@ class LoggingMiddleware:
 
         try:
             await self.app(scope, logging_receive, logging_send)
-            
-            # Request body logging (safely parse json or truncate string)
-            body_data = None
-            if body_bytes:
-                try:
-                    body_data = json.loads(body_bytes)
-                except:
-                    body_data = body_bytes.decode("utf-8", errors="ignore")[:500]
-
             duration = time.time() - start_time
-            log_request(
-                method=method,
-                path=path,
-                headers=headers,
-                body=body_data
-            )
             log_response(
                 status_code=status_code[0],
                 path=path,
@@ -77,3 +89,4 @@ class LoggingMiddleware:
                 duration=duration
             )
             raise
+
