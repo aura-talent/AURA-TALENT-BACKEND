@@ -73,3 +73,4 @@ curl -s -X POST http://localhost:8000/api/v1/jobs/evaluate \
 - **Comp research (Block D) and layoff search (Block G)** run without live web search in this version — the LLM states what it can't verify rather than inventing data. Wire in a search tool (e.g. Tavily, or Anthropic's web search tool) as a graph node to restore parity with the CLI.
 - **Ethical guardrails carried over:** scores below 3.5 come back with an explicit recommendation against applying; nothing is ever auto-submitted.
 - **Before charging users:** replace the shared `X-API-Key` with per-user auth (JWT/OAuth), add rate limiting and per-user token metering, and move SQLite to Postgres if you expect concurrency.
+# Test auto-deploy Thu Jun 11 18:36:29 +08 2026
