@@ -1,7 +1,7 @@
 from functools import lru_cache
 
 from langchain.chat_models import init_chat_model
-from langchain.callbacks.base import BaseCallbackHandler
+from langchain_core.callbacks.base import BaseCallbackHandler
 from typing import Any, Dict, List
 
 from .config import settings
