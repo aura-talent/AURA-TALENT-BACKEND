@@ -39,10 +39,15 @@ The prompts in `app/prompts.py` are distilled from `modes/_shared.md` and `modes
 
 ```bash
 cd backend
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+# Install dependencies with uv (recommended)
+uv sync
 cp .env.example .env   # fill in ANTHROPIC_API_KEY and BACKEND_API_KEY
-uvicorn app.main:app --reload --port 8000
+uv run uvicorn app.main:app --reload --port 8000
+
+# Or use traditional venv (legacy)
+# python3 -m venv .venv && source .venv/bin/activate
+# pip install -r requirements.txt
+# uvicorn app.main:app --reload --port 8000
 ```
 
 Interactive API docs at http://localhost:8000/docs

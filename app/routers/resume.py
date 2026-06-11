@@ -1,9 +1,21 @@
+import json
+
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi.responses import StreamingResponse
 
 from .. import storage
 from ..graphs.resume import extract_text, parse_graph, suggest_graph
 from ..schemas import ResumeOut, ResumeTextIn, SuggestIn, SuggestOut
 from ..services.jd_fetch import JDFetchError
+
+_SUGGEST_NODE_LABELS = {
+    "fetch_jd": "Fetching job description...",
+    "suggest": "Generating tailored suggestions...",
+}
+
+
+def _sse(event: str, data: dict) -> str:
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 router = APIRouter(prefix="/resume", tags=["resume"])
 
@@ -53,6 +65,41 @@ async def resume_suggestions(body: SuggestIn):
     except (JDFetchError, ValueError) as e:
         raise HTTPException(422, str(e))
     return SuggestOut(suggestions_markdown=result["suggestions_markdown"])
+
+
+@router.post("/suggestions/stream")
+async def resume_suggestions_stream(body: SuggestIn):
+    """Same as /suggestions but streams SSE progress events, then the final result."""
+    resume = storage.get_resume(body.user_id)
+    if not resume:
+        raise HTTPException(404, "Upload a resume first")
+
+    async def generate():
+        try:
+            async for event in suggest_graph.astream_events(
+                {
+                    "resume_md": resume["markdown"],
+                    "jd_text": body.jd_text,
+                    "jd_url": body.jd_url,
+                },
+                version="v2",
+            ):
+                if event["event"] == "on_chain_start" and event["name"] in _SUGGEST_NODE_LABELS:
+                    yield _sse("progress", {
+                        "node": event["name"],
+                        "message": _SUGGEST_NODE_LABELS[event["name"]],
+                    })
+
+            result = await suggest_graph.ainvoke({
+                "resume_md": resume["markdown"],
+                "jd_text": body.jd_text,
+                "jd_url": body.jd_url,
+            })
+            yield _sse("result", {"suggestions_markdown": result["suggestions_markdown"]})
+        except (JDFetchError, ValueError) as e:
+            yield _sse("error", {"detail": str(e)})
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
 
 
 async def _parse_and_save(user_id: str, raw_text: str) -> ResumeOut:
