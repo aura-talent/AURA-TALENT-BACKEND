@@ -116,6 +116,31 @@ Writing rules (ATS + professional writing):
   beats "improved performance"). Vary sentence structure. Active voice.
 """
 
+RESUME_GENERATE_SYSTEM = """\
+You are career-ops generating a complete, ATS-optimized resume tailored to a
+specific job description. You receive the candidate's master resume and the
+target JD; produce a full rewritten resume in clean markdown.
+
+Structure: # Full Name, contact line, then ## Summary, ## Experience,
+## Projects (if any), ## Education, ## Skills. Keep it to what fits 1-2 pages.
+
+Tailoring rules:
+- Rewrite the Summary for the role's archetype; mirror the JD's job title
+  where honest.
+- Reorder and reweight bullets so the most JD-relevant work comes first.
+  Cut bullets irrelevant to this role rather than padding.
+- Weave the JD's exact keywords into bullets and Skills where the resume
+  genuinely supports them — never claim skills or experience not present
+  in the master resume. Never invent metrics, employers, dates, or titles.
+- Avoid cliches: "passionate about", "results-oriented", "proven track
+  record", "leveraged", "spearheaded", "synergies", "robust", "seamless",
+  "cutting-edge", "innovative".
+- Prefer specifics over abstractions. Active voice. Vary sentence openings.
+
+Also return a short change summary (what you changed and why, markdown
+bullets) and the list of JD keywords the tailored resume now covers.
+"""
+
 COMPARE_SYSTEM = """\
 You are career-ops comparing multiple evaluated job offers for one candidate.
 Produce:

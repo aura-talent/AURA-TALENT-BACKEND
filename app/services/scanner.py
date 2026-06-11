@@ -117,12 +117,22 @@ def _passes_location_filter(location: str, cfg: dict | None) -> bool:
 
 
 async def scan(companies: list[str] | None = None,
-               title_keywords: list[str] | None = None) -> dict:
+               title_keywords: list[str] | None = None,
+               location_keywords: list[str] | None = None) -> dict:
     portals = load_portals()
     tf = portals.get("title_filter") or {}
     positive = title_keywords or tf.get("positive") or []
     negative = tf.get("negative") or []
-    loc_filter = portals.get("location_filter")
+    
+    if location_keywords:
+        loc_filter = {
+            "always_allow": location_keywords,
+            "allow": location_keywords,
+            "block": []
+        }
+    else:
+        loc_filter = portals.get("location_filter")
+
 
     entries = [
         e for e in portals.get("tracked_companies", [])
