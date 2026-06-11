@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from dotenv import load_dotenv
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings
 
 # Export .env into the process environment so LLM SDKs find their credentials
@@ -16,8 +16,8 @@ class Settings(BaseSettings):
     database_path: Path = Path(__file__).resolve().parents[1] / "career_ops.db"
     cors_origins: str = "http://localhost:3000"
 
-    supabase_url: str = Field("", validation_alias="NEXT_PUBLIC_SUPABASE_URL")
-    supabase_key: str = Field("", validation_alias="NEXT_PUBLIC_SUPABASE_ANON_KEY")
+    supabase_url: str = Field("", validation_alias=AliasChoices("SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL"))
+    supabase_key: str = Field("", validation_alias=AliasChoices("SUPABASE_KEY", "NEXT_PUBLIC_SUPABASE_ANON_KEY", "NEXT_PUBLIC_SUPABASE_KEY"))
 
     class Config:
         env_file = ".env"

@@ -10,8 +10,27 @@ CANONICAL_STATES = {
     "Offer", "Rejected", "Discarded", "SKIP",
 }
 
-# Initialize Supabase client
-supabase: Client = create_client(settings.supabase_url, settings.supabase_key)
+# Initialize Supabase client lazily to prevent import-time crashes if env vars are missing
+_client: Client | None = None
+
+def _get_client() -> Client:
+    global _client
+    if _client is None:
+        if not settings.supabase_url or not settings.supabase_key:
+            raise ValueError(
+                "Supabase URL and Key are required. Please configure "
+                "NEXT_PUBLIC_SUPABASE_URL (or SUPABASE_URL) and "
+                "NEXT_PUBLIC_SUPABASE_ANON_KEY (or SUPABASE_KEY) in your environment/env file."
+            )
+        _client = create_client(settings.supabase_url, settings.supabase_key)
+    return _client
+
+class SupabaseProxy:
+    def __getattr__(self, name):
+        return getattr(_get_client(), name)
+
+supabase = SupabaseProxy()
+
 
 
 def init_db() -> None:
