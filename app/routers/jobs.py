@@ -9,6 +9,7 @@ from ..graphs.evaluate import evaluation_graph
 from ..schemas import CompareIn, CompareOut, EvaluateIn, EvaluationOut
 from ..services.jd_fetch import JDFetchError
 from ..logging_config import logger, log_error
+from ..auth import verify_user_role
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -27,6 +28,7 @@ def _sse(event: str, data: dict) -> str:
 @router.post("/evaluate", response_model=EvaluationOut)
 async def evaluate_job(body: EvaluateIn):
     """Full A-G evaluation of one job against the user's resume."""
+    verify_user_role(body.user_id, ["candidate"])
     logger.info(f"📝 Starting job evaluation for user: {body.user_id}")
     logger.info(f"JD URL: {body.jd_url if body.jd_url else 'N/A'}")
     logger.info(f"JD Text provided: {bool(body.jd_text)}")
@@ -99,6 +101,7 @@ async def evaluate_job(body: EvaluateIn):
 @router.post("/evaluate/stream")
 async def evaluate_job_stream(body: EvaluateIn):
     """Same as /evaluate but streams SSE progress events, then the final result."""
+    verify_user_role(body.user_id, ["candidate"])
     logger.info(f"📡 Starting STREAMING job evaluation for user: {body.user_id}")
     
     resume = storage.get_resume(body.user_id)
@@ -201,6 +204,7 @@ async def evaluate_job_stream(body: EvaluateIn):
 @router.post("/compare", response_model=CompareOut)
 async def compare_jobs(body: CompareIn):
     """Rank multiple previously evaluated offers (career-ops `ofertas` mode)."""
+    verify_user_role(body.user_id, ["candidate"])
     evaluations = []
     for eid in body.evaluation_ids:
         ev = storage.get_evaluation(body.user_id, eid)

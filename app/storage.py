@@ -138,15 +138,47 @@ def update_status(user_id: str, evaluation_id: int, status: str,
     return len(res.data) > 0
 
 
-def save_user(user_id: str, email: str | None, full_name: str | None, avatar_url: str | None) -> None:
+def save_user(user_id: str, email: str | None, full_name: str | None, avatar_url: str | None, role: str | None = "candidate") -> None:
     from datetime import datetime
-    supabase.table("users").upsert({
-        "id": user_id,
-        "email": email,
-        "full_name": full_name,
-        "avatar_url": avatar_url,
-        "created_at": datetime.utcnow().isoformat()
-    }).execute()
+    # Check if the user already exists
+    existing = supabase.table("users").select("id").eq("id", user_id).execute()
+    if existing.data:
+        # User exists: only update profile fields — never overwrite the stored role
+        supabase.table("users").update({
+            "email": email,
+            "full_name": full_name,
+            "avatar_url": avatar_url,
+        }).eq("id", user_id).execute()
+    else:
+        # New user: insert with the provided role (default candidate)
+        supabase.table("users").insert({
+            "id": user_id,
+            "email": email,
+            "full_name": full_name,
+            "avatar_url": avatar_url,
+            "role": role or "candidate",
+            "created_at": datetime.utcnow().isoformat(),
+        }).execute()
+
+
+def get_user_role(user_id: str) -> str:
+    try:
+        res = supabase.table("users").select("role").eq("id", user_id).execute()
+        if res.data:
+            return res.data[0].get("role") or "candidate"
+    except Exception:
+        pass
+    return "candidate"
+
+
+def get_user_profile(user_id: str) -> dict | None:
+    try:
+        res = supabase.table("users").select("*").eq("id", user_id).execute()
+        if res.data:
+            return res.data[0]
+    except Exception:
+        pass
+    return None
 
 
 def migrate_user_data(anon_id: str, auth_id: str) -> None:
