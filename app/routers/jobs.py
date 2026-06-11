@@ -99,6 +99,8 @@ async def evaluate_job(body: EvaluateIn):
 @router.post("/evaluate/stream")
 async def evaluate_job_stream(body: EvaluateIn):
     """Same as /evaluate but streams SSE progress events, then the final result."""
+    logger.info(f"📡 Starting STREAMING job evaluation for user: {body.user_id}")
+    
     resume = storage.get_resume(body.user_id)
     if not resume:
         raise HTTPException(404, "Upload a resume first")
@@ -107,6 +109,11 @@ async def evaluate_job_stream(body: EvaluateIn):
 
     async def generate():
         try:
+            # Store the final result as we stream
+            final_result = None
+            
+            logger.info("🔄 Starting graph streaming...")
+            
             async for event in evaluation_graph.astream_events(
                 {
                     "resume_md": resume["markdown"],
@@ -116,21 +123,37 @@ async def evaluate_job_stream(body: EvaluateIn):
                 },
                 version="v2",
             ):
-                if event["event"] == "on_chain_start" and event["name"] in _EVAL_NODE_LABELS:
-                    yield _sse("progress", {
-                        "node": event["name"],
-                        "message": _EVAL_NODE_LABELS[event["name"]],
-                    })
+                # Log streaming events
+                if event["event"] == "on_chain_start":
+                    logger.info(f"📍 Graph node started: {event.get('name', 'unknown')}")
+                    if event["name"] in _EVAL_NODE_LABELS:
+                        progress_msg = _sse("progress", {
+                            "node": event["name"],
+                            "message": _EVAL_NODE_LABELS[event["name"]],
+                        })
+                        logger.info(f"Sending progress: {event['name']}")
+                        yield progress_msg
+                
+                # Capture the final result from on_chain_end event
+                if event["event"] == "on_chain_end" and event.get("name") == "LangGraph":
+                    final_result = event.get("data", {}).get("output")
+                    logger.info("✅ Graph execution completed")
 
-            # graph finished — fetch saved state for the final result
-            result = await evaluation_graph.ainvoke({
-                "resume_md": resume["markdown"],
-                "jd_text": body.jd_text,
-                "jd_url": body.jd_url,
-                "company_hint": body.company_hint,
-            })
-            ev = result["evaluation"]
-            leg = result["legitimacy"]
+            # Use the streamed result instead of calling ainvoke again
+            if not final_result:
+                logger.warning("⚠️ No final result captured, invoking graph again...")
+                final_result = await evaluation_graph.ainvoke({
+                    "resume_md": resume["markdown"],
+                    "jd_text": body.jd_text,
+                    "jd_url": body.jd_url,
+                    "company_hint": body.company_hint,
+                })
+            
+            ev = final_result["evaluation"]
+            leg = final_result["legitimacy"]
+            
+            logger.info(f"💼 Company: {ev.company}, Role: {ev.role}, Score: {ev.scores.global_score}")
+            
             eval_id = storage.save_evaluation(
                 body.user_id,
                 company=ev.company,
@@ -141,9 +164,12 @@ async def evaluate_job_stream(body: EvaluateIn):
                 scores=ev.scores.model_dump(),
                 recommendation=ev.recommendation,
                 legitimacy=leg.model_dump(),
-                report_markdown=result["report_markdown"],
+                report_markdown=final_result["report_markdown"],
                 keywords=ev.keywords,
             )
+            
+            logger.info(f"✅ Evaluation saved with ID: {eval_id}")
+            
             out = EvaluationOut(
                 evaluation_id=eval_id,
                 user_id=body.user_id,
@@ -154,12 +180,20 @@ async def evaluate_job_stream(body: EvaluateIn):
                 scores=ev.scores,
                 recommendation=ev.recommendation,
                 legitimacy=leg,
-                report_markdown=result["report_markdown"],
+                report_markdown=final_result["report_markdown"],
                 keywords=ev.keywords,
             )
-            yield _sse("result", out.model_dump())
+            
+            result_msg = _sse("result", out.model_dump())
+            logger.info("📤 Sending final result to client")
+            yield result_msg
+            
         except (JDFetchError, ValueError) as e:
+            log_error(e, context="evaluate_job_stream")
             yield _sse("error", {"detail": str(e)})
+        except Exception as e:
+            log_error(e, context="evaluate_job_stream")
+            yield _sse("error", {"detail": "Internal server error"})
 
     return StreamingResponse(generate(), media_type="text/event-stream")
 
