@@ -182,6 +182,16 @@ class UserIn(BaseModel):
     email: Optional[str] = None
     full_name: Optional[str] = None
     avatar_url: Optional[str] = None
+    role: Optional[str] = "candidate"
+
+
+class UserOut(BaseModel):
+    id: str
+    email: Optional[str] = None
+    full_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+    role: str
+    created_at: Optional[str] = None
 
 
 class MigrateIn(BaseModel):

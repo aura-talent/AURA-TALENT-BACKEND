@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
 from .. import storage
-from ..schemas import UserIn, MigrateIn
+from ..schemas import UserIn, MigrateIn, UserOut
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -15,10 +15,23 @@ async def save_user(body: UserIn):
             email=body.email,
             full_name=body.full_name,
             avatar_url=body.avatar_url,
+            role=body.role,
         )
         return {"ok": True}
     except Exception as e:
         raise HTTPException(500, detail=str(e))
+
+
+@router.get("/{user_id}", response_model=UserOut)
+async def get_user_profile(user_id: str):
+    """Fetch user profile including role."""
+    profile = storage.get_user_profile(user_id)
+    if not profile:
+        return UserOut(
+            id=user_id,
+            role="candidate"
+        )
+    return UserOut(**profile)
 
 
 @router.post("/migrate")

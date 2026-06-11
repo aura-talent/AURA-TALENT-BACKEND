@@ -18,6 +18,7 @@ from ..schemas import (
 from ..services.jd_fetch import JDFetchError
 from ..services.pdf import markdown_to_pdf
 from ..logging_config import log_error
+from ..auth import verify_user_role
 
 _SUGGEST_NODE_LABELS = {
     "fetch_jd": "Fetching job description...",
@@ -41,6 +42,7 @@ MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 @router.post("/upload", response_model=ResumeOut)
 async def upload_resume(user_id: str = Form(...), file: UploadFile = File(...)):
     """Upload a resume file (PDF, DOCX, TXT, or MD); parsed to clean markdown."""
+    verify_user_role(user_id, ["candidate"])
     content = await file.read()
     if len(content) > MAX_UPLOAD_BYTES:
         raise HTTPException(413, "File too large (max 5 MB)")
@@ -53,6 +55,7 @@ async def upload_resume(user_id: str = Form(...), file: UploadFile = File(...)):
 @router.post("/text", response_model=ResumeOut)
 async def submit_resume_text(body: ResumeTextIn):
     """Submit resume as raw text (e.g. pasted into the website)."""
+    verify_user_role(body.user_id, ["candidate"])
     if len(body.text.strip()) < 100:
         raise HTTPException(422, "Resume text too short")
     return await _parse_and_save(body.user_id, body.text)
@@ -60,6 +63,7 @@ async def submit_resume_text(body: ResumeTextIn):
 
 @router.get("/{user_id}", response_model=ResumeOut)
 async def get_resume(user_id: str):
+    verify_user_role(user_id, ["candidate", "employer"])
     resume = storage.get_resume(user_id)
     if not resume:
         raise HTTPException(404, "No resume found for this user")
@@ -69,6 +73,7 @@ async def get_resume(user_id: str):
 @router.post("/suggestions", response_model=SuggestOut)
 async def resume_suggestions(body: SuggestIn):
     """JD-specific resume improvement plan (career-ops Block E)."""
+    verify_user_role(body.user_id, ["candidate"])
     resume = storage.get_resume(body.user_id)
     if not resume:
         raise HTTPException(404, "Upload a resume first")
@@ -86,6 +91,7 @@ async def resume_suggestions(body: SuggestIn):
 @router.post("/suggestions/stream")
 async def resume_suggestions_stream(body: SuggestIn):
     """Same as /suggestions but streams SSE progress events, then the final result."""
+    verify_user_role(body.user_id, ["candidate"])
     resume = storage.get_resume(body.user_id)
     if not resume:
         raise HTTPException(404, "Upload a resume first")
