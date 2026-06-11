@@ -1,0 +1,110 @@
+name: Deploy to GCP VM
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy Backend to GCP
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.GCP_SSH_PRIVATE_KEY }}" > ~/.ssh/gcp_key
+          chmod 600 ~/.ssh/gcp_key
+          # Use fixed IP since we know it
+          VM_IP="34.132.193.54"
+          ssh-keyscan -H $VM_IP >> ~/.ssh/known_hosts
+          echo "vm_ip=$VM_IP" >> $GITHUB_ENV
+
+      - name: Get VM IP
+        id: get-ip
+        run: |
+          echo "vm_ip=34.132.193.54" >> $GITHUB_OUTPUT
+
+      - name: Deploy to VM
+        env:
+          VM_IP: ${{ steps.get-ip.outputs.vm_ip }}
+        run: |
+          # Copy files to VM
+          ssh -i ~/.ssh/gcp_key -o StrictHostKeyChecking=no github-actions@$VM_IP << 'ENDSSH'
+            set -e
+            
+            # Navigate to app directory
+            cd /opt/career-ops-backend
+            
+            # Pull latest code using GitHub token
+            git config credential.helper store
+            git pull https://charleshor0311:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git main
+            
+            # Install/update dependencies
+            ~/.local/bin/uv sync
+            
+            # Restart the service
+            sudo systemctl restart career-ops-backend
+            
+            # Wait for service to be ready
+            echo "Waiting for service to start..."
+            sleep 5
+            
+            # Check if service is running
+            if sudo systemctl is-active --quiet career-ops-backend; then
+              echo "✓ Deployment successful!"
+              sudo systemctl status career-ops-backend --no-pager
+            else
+              echo "✗ Deployment failed - service not running"
+              sudo journalctl -u career-ops-backend -n 20 --no-pager
+              exit 1
+            fi
+          ENDSSH
+
+      - name: Health Check
+        env:
+          VM_IP: ${{ steps.get-ip.outputs.vm_ip }}
+        run: |
+          echo "Running health check..."
+          max_attempts=10
+          attempt=1
+          
+          while [ $attempt -le $max_attempts ]; do
+            echo "Attempt $attempt/$max_attempts"
+            if curl -f -s http://$VM_IP:8000/health > /dev/null; then
+              echo "✓ Health check passed!"
+              curl -s http://$VM_IP:8000/health
+              exit 0
+            fi
+            echo "Service not ready yet, waiting..."
+            sleep 3
+            attempt=$((attempt + 1))
+          done
+          
+          echo "✗ Health check failed after $max_attempts attempts"
+          exit 1
+
+      - name: Deployment Summary
+        if: success()
+        run: |
+          echo "### ✅ Deployment Successful! 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**API Endpoint:** http://${{ steps.get-ip.outputs.vm_ip }}:8000" >> $GITHUB_STEP_SUMMARY
+          echo "**Docs:** http://${{ steps.get-ip.outputs.vm_ip }}:8000/docs" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify on Failure
+        if: failure()
+        run: |
+          echo "### ❌ Deployment Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Check the logs above for details." >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY

@@ -52,4 +52,14 @@ app.include_router(applications.router, prefix="/api/v1", dependencies=deps)
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "model": settings.model_name}
+    """Health check endpoint for monitoring and deployment verification."""
+    import sys
+    from datetime import datetime
+    
+    return {
+        "status": "ok",
+        "timestamp": datetime.utcnow().isoformat(),
+        "model": settings.model_name,
+        "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+        "environment": "production" if settings.backend_api_key != "change-me" else "development"
+    }

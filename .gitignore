@@ -1,4 +1,49 @@
+# Python virtual environments
 .venv/
+venv/
+env/
+
+# Environment variables
 .env
+.env.local
+.env.production
+
+# Databases
 *.db
+*.sqlite
+*.sqlite3
+
+# Python cache
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# uv
+.uv/
+
+# GCP credentials (should never be committed!)
+gcp-key.json
+*-key.json
+*.pem
+
+# SSH keys (should never be committed!)
+*.key
+id_rsa
+id_ed25519
+gcp-github-actions*
+
+# Deployment backups
+backend.backup.*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
