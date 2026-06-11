@@ -17,20 +17,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Get VM IP
+        id: get-ip
+        run: |
+          # Use the current VM IP
+          echo "vm_ip=35.253.164.188" >> $GITHUB_OUTPUT
+
       - name: Configure SSH
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.GCP_SSH_PRIVATE_KEY }}" > ~/.ssh/gcp_key
           chmod 600 ~/.ssh/gcp_key
-          # Use fixed IP since we know it
-          VM_IP="34.132.193.54"
-          ssh-keyscan -H $VM_IP >> ~/.ssh/known_hosts
-          echo "vm_ip=$VM_IP" >> $GITHUB_ENV
-
-      - name: Get VM IP
-        id: get-ip
-        run: |
-          echo "vm_ip=34.132.193.54" >> $GITHUB_OUTPUT
+          ssh-keyscan -H 35.253.164.188 >> ~/.ssh/known_hosts
 
       - name: Deploy to VM
         env:
