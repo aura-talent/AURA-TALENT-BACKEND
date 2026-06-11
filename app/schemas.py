@@ -141,3 +141,15 @@ class ApplicationOut(BaseModel):
 class StatusUpdateIn(BaseModel):
     status: str
     notes: Optional[str] = None
+
+
+class UserIn(BaseModel):
+    id: str
+    email: Optional[str] = None
+    full_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+
+
+class MigrateIn(BaseModel):
+    anon_id: str
+    auth_id: str

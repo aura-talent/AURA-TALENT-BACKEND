@@ -1,12 +1,8 @@
-"""SQLite persistence — multi-user replacement for the CLI's markdown files
-(cv.md, data/applications.md, reports/). Canonical states mirror
-templates/states.yml."""
+"""Supabase persistence — multi-user replacement for SQLite database."""
 
 import json
-import sqlite3
-from contextlib import contextmanager
 from datetime import date
-
+from supabase import create_client, Client
 from .config import settings
 
 CANONICAL_STATES = {
@@ -14,72 +10,36 @@ CANONICAL_STATES = {
     "Offer", "Rejected", "Discarded", "SKIP",
 }
 
-_SCHEMA = """
-CREATE TABLE IF NOT EXISTS resumes (
-    user_id TEXT PRIMARY KEY,
-    markdown TEXT NOT NULL,
-    profile_json TEXT NOT NULL DEFAULT '{}',
-    updated_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS evaluations (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id TEXT NOT NULL,
-    date TEXT NOT NULL,
-    company TEXT NOT NULL,
-    role TEXT NOT NULL,
-    jd_url TEXT,
-    archetype TEXT,
-    score REAL,
-    scores_json TEXT,
-    recommendation TEXT,
-    legitimacy_json TEXT,
-    report_markdown TEXT,
-    keywords_json TEXT,
-    status TEXT NOT NULL DEFAULT 'Evaluated',
-    notes TEXT DEFAULT ''
-);
-CREATE INDEX IF NOT EXISTS idx_eval_user ON evaluations(user_id);
-"""
-
-
-@contextmanager
-def db():
-    conn = sqlite3.connect(settings.database_path)
-    conn.row_factory = sqlite3.Row
-    try:
-        yield conn
-        conn.commit()
-    finally:
-        conn.close()
+# Initialize Supabase client
+supabase: Client = create_client(settings.supabase_url, settings.supabase_key)
 
 
 def init_db() -> None:
-    with db() as conn:
-        conn.executescript(_SCHEMA)
+    """No-op for Supabase since tables are initialized on the Supabase console."""
+    pass
 
 
 def save_resume(user_id: str, markdown: str, profile: dict) -> None:
-    with db() as conn:
-        conn.execute(
-            "INSERT INTO resumes (user_id, markdown, profile_json, updated_at) "
-            "VALUES (?, ?, ?, ?) "
-            "ON CONFLICT(user_id) DO UPDATE SET markdown=excluded.markdown, "
-            "profile_json=excluded.profile_json, updated_at=excluded.updated_at",
-            (user_id, markdown, json.dumps(profile), date.today().isoformat()),
-        )
+    supabase.table("resumes").upsert({
+        "user_id": user_id,
+        "markdown": markdown,
+        "profile_json": json.dumps(profile) if isinstance(profile, dict) else profile,
+        "updated_at": date.today().isoformat()
+    }).execute()
 
 
 def get_resume(user_id: str) -> dict | None:
-    with db() as conn:
-        row = conn.execute(
-            "SELECT * FROM resumes WHERE user_id = ?", (user_id,)
-        ).fetchone()
-    if not row:
+    res = supabase.table("resumes").select("*").eq("user_id", user_id).execute()
+    if not res.data:
         return None
+    row = res.data[0]
+    profile = row["profile_json"]
+    if isinstance(profile, str):
+        profile = json.loads(profile)
     return {
         "user_id": row["user_id"],
         "markdown": row["markdown"],
-        "profile": json.loads(row["profile_json"]),
+        "profile": profile,
     }
 
 
@@ -87,50 +47,58 @@ def save_evaluation(user_id: str, *, company: str, role: str, jd_url: str | None
                     archetype: str, score: float, scores: dict,
                     recommendation: str, legitimacy: dict,
                     report_markdown: str, keywords: list[str]) -> int:
-    # Mirror the CLI rule: never duplicate company+role for a user — update it.
-    with db() as conn:
-        row = conn.execute(
-            "SELECT id FROM evaluations WHERE user_id=? AND company=? AND role=?",
-            (user_id, company, role),
-        ).fetchone()
-        params = (
-            date.today().isoformat(), jd_url, archetype, score,
-            json.dumps(scores), recommendation, json.dumps(legitimacy),
-            report_markdown, json.dumps(keywords),
-        )
-        if row:
-            conn.execute(
-                "UPDATE evaluations SET date=?, jd_url=?, archetype=?, score=?, "
-                "scores_json=?, recommendation=?, legitimacy_json=?, "
-                "report_markdown=?, keywords_json=? WHERE id=?",
-                (*params, row["id"]),
-            )
-            return row["id"]
-        cur = conn.execute(
-            "INSERT INTO evaluations (user_id, company, role, date, jd_url, "
-            "archetype, score, scores_json, recommendation, legitimacy_json, "
-            "report_markdown, keywords_json) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-            (user_id, company, role, *params),
-        )
-        return cur.lastrowid
+    # Check if there is an existing evaluation for user_id, company, and role
+    res = supabase.table("evaluations")\
+        .select("id")\
+        .eq("user_id", user_id)\
+        .eq("company", company)\
+        .eq("role", role)\
+        .execute()
+        
+    data = {
+        "user_id": user_id,
+        "company": company,
+        "role": role,
+        "date": date.today().isoformat(),
+        "jd_url": jd_url,
+        "archetype": archetype,
+        "score": score,
+        "scores_json": json.dumps(scores) if isinstance(scores, dict) else scores,
+        "recommendation": recommendation,
+        "legitimacy_json": json.dumps(legitimacy) if isinstance(legitimacy, dict) else legitimacy,
+        "report_markdown": report_markdown,
+        "keywords_json": json.dumps(keywords) if isinstance(keywords, list) else keywords,
+    }
+
+    if res.data:
+        eval_id = res.data[0]["id"]
+        supabase.table("evaluations").update(data).eq("id", eval_id).execute()
+        return eval_id
+    else:
+        insert_res = supabase.table("evaluations").insert(data).execute()
+        if insert_res.data:
+            return insert_res.data[0]["id"]
+        raise ValueError("Failed to insert evaluation")
 
 
 def get_evaluation(user_id: str, evaluation_id: int) -> dict | None:
-    with db() as conn:
-        row = conn.execute(
-            "SELECT * FROM evaluations WHERE id=? AND user_id=?",
-            (evaluation_id, user_id),
-        ).fetchone()
-    return _eval_row(row) if row else None
+    res = supabase.table("evaluations")\
+        .select("*")\
+        .eq("id", evaluation_id)\
+        .eq("user_id", user_id)\
+        .execute()
+    if not res.data:
+        return None
+    return _eval_row(res.data[0])
 
 
 def list_evaluations(user_id: str) -> list[dict]:
-    with db() as conn:
-        rows = conn.execute(
-            "SELECT * FROM evaluations WHERE user_id=? ORDER BY id DESC",
-            (user_id,),
-        ).fetchall()
-    return [_eval_row(r) for r in rows]
+    res = supabase.table("evaluations")\
+        .select("*")\
+        .eq("user_id", user_id)\
+        .order("id", desc=True)\
+        .execute()
+    return [_eval_row(r) for r in res.data]
 
 
 def update_status(user_id: str, evaluation_id: int, status: str,
@@ -139,16 +107,57 @@ def update_status(user_id: str, evaluation_id: int, status: str,
         raise ValueError(
             f"Invalid status '{status}'. Canonical: {sorted(CANONICAL_STATES)}"
         )
-    with db() as conn:
-        cur = conn.execute(
-            "UPDATE evaluations SET status=?, notes=COALESCE(?, notes) "
-            "WHERE id=? AND user_id=?",
-            (status, notes, evaluation_id, user_id),
-        )
-        return cur.rowcount > 0
+    data = {"status": status}
+    if notes is not None:
+        data["notes"] = notes
+    
+    res = supabase.table("evaluations")\
+        .update(data)\
+        .eq("id", evaluation_id)\
+        .eq("user_id", user_id)\
+        .execute()
+    return len(res.data) > 0
 
 
-def _eval_row(row: sqlite3.Row) -> dict:
+def save_user(user_id: str, email: str | None, full_name: str | None, avatar_url: str | None) -> None:
+    from datetime import datetime
+    supabase.table("users").upsert({
+        "id": user_id,
+        "email": email,
+        "full_name": full_name,
+        "avatar_url": avatar_url,
+        "created_at": datetime.utcnow().isoformat()
+    }).execute()
+
+
+def migrate_user_data(anon_id: str, auth_id: str) -> None:
+    # Check if auth_id already has a resume
+    res = supabase.table("resumes").select("user_id").eq("user_id", auth_id).execute()
+    
+    if not res.data:
+        # Reassign anonymous resume to authenticated user
+        supabase.table("resumes").update({"user_id": auth_id}).eq("user_id", anon_id).execute()
+    else:
+        # Delete anon resume to prevent duplicate
+        supabase.table("resumes").delete().eq("user_id", anon_id).execute()
+        
+    # Reassign evaluations
+    supabase.table("evaluations").update({"user_id": auth_id}).eq("user_id", anon_id).execute()
+
+
+def _eval_row(row: dict) -> dict:
+    scores = row.get("scores_json") or "{}"
+    if isinstance(scores, str):
+        scores = json.loads(scores)
+
+    legitimacy = row.get("legitimacy_json") or "{}"
+    if isinstance(legitimacy, str):
+        legitimacy = json.loads(legitimacy)
+
+    keywords = row.get("keywords_json") or "[]"
+    if isinstance(keywords, str):
+        keywords = json.loads(keywords)
+
     return {
         "id": row["id"],
         "user_id": row["user_id"],
@@ -157,12 +166,12 @@ def _eval_row(row: sqlite3.Row) -> dict:
         "role": row["role"],
         "jd_url": row["jd_url"],
         "archetype": row["archetype"],
-        "score": row["score"],
-        "scores": json.loads(row["scores_json"] or "{}"),
+        "score": float(row["score"]) if row["score"] is not None else 0.0,
+        "scores": scores,
         "recommendation": row["recommendation"],
-        "legitimacy": json.loads(row["legitimacy_json"] or "{}"),
+        "legitimacy": legitimacy,
         "report_markdown": row["report_markdown"],
-        "keywords": json.loads(row["keywords_json"] or "[]"),
+        "keywords": keywords,
         "status": row["status"],
-        "notes": row["notes"],
+        "notes": row["notes"] or "",
     }

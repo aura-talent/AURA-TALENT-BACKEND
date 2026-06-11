@@ -6,7 +6,7 @@ from fastapi.security import APIKeyHeader
 
 from . import storage
 from .config import settings
-from .routers import applications, jobs, resume, scan
+from .routers import applications, jobs, resume, scan, users
 from .middleware import LoggingMiddleware
 from .logging_config import logger
 
@@ -60,6 +60,7 @@ app.include_router(resume.router, prefix="/api/v1", dependencies=deps)
 app.include_router(jobs.router, prefix="/api/v1", dependencies=deps)
 app.include_router(scan.router, prefix="/api/v1", dependencies=deps)
 app.include_router(applications.router, prefix="/api/v1", dependencies=deps)
+app.include_router(users.router, prefix="/api/v1", dependencies=deps)
 
 
 @app.get("/health")
