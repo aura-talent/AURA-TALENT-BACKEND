@@ -21,6 +21,7 @@ dependencies = [
     "python-multipart>=0.0.12",
     "langchain-google-genai>=2.0",
     "langchain-google-vertexai>=2.0",
+    "google-cloud-logging>=3.5",
 ]
 
 [tool.hatch.build.targets.wheel]

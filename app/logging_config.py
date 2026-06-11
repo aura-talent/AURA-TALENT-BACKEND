@@ -26,7 +26,7 @@ root_logger.setLevel(LOG_LEVEL)
 for handler in root_logger.handlers[:]:
     root_logger.removeHandler(handler)
 
-# Console handler (stdout)
+# Console handler (stdout) - This goes to systemd journal
 console_handler = logging.StreamHandler(sys.stdout)
 console_handler.setLevel(LOG_LEVEL)
 console_handler.setFormatter(formatter)
@@ -44,6 +44,13 @@ except Exception as e:
 # Create logger for this app
 logger = logging.getLogger("career-ops")
 logger.setLevel(LOG_LEVEL)
+
+# Try to enable Google Cloud Logging
+try:
+    from .cloud_logging import setup_cloud_logging
+    setup_cloud_logging()
+except Exception as e:
+    logger.info(f"Google Cloud Logging not available: {e}")
 
 
 def log_request(method: str, path: str, headers: dict, body: Any = None):
