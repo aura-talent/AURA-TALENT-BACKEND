@@ -7,6 +7,8 @@ from fastapi.security import APIKeyHeader
 from . import storage
 from .config import settings
 from .routers import applications, jobs, resume, scan
+from .middleware import LoggingMiddleware
+from .logging_config import logger
 
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
@@ -20,8 +22,13 @@ async def require_api_key(key: str = Security(api_key_header)):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    logger.info("🚀 Starting Career Ops API...")
+    logger.info(f"Model: {settings.model_name}")
+    logger.info(f"CORS Origins: {settings.cors_origin_list}")
     storage.init_db()
+    logger.info("✅ Database initialized")
     yield
+    logger.info("👋 Shutting down Career Ops API")
 
 
 app = FastAPI(
@@ -42,6 +49,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add logging middleware
+app.add_middleware(LoggingMiddleware)
+
+logger.info("✅ Middleware configured")
 
 deps = [Depends(require_api_key)]
 app.include_router(resume.router, prefix="/api/v1", dependencies=deps)

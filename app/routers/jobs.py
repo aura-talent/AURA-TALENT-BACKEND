@@ -8,6 +8,7 @@ from ..graphs.compare import compare_graph
 from ..graphs.evaluate import evaluation_graph
 from ..schemas import CompareIn, CompareOut, EvaluateIn, EvaluationOut
 from ..services.jd_fetch import JDFetchError
+from ..logging_config import logger, log_error
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -26,23 +27,44 @@ def _sse(event: str, data: dict) -> str:
 @router.post("/evaluate", response_model=EvaluationOut)
 async def evaluate_job(body: EvaluateIn):
     """Full A-G evaluation of one job against the user's resume."""
+    logger.info(f"📝 Starting job evaluation for user: {body.user_id}")
+    logger.info(f"JD URL: {body.jd_url if body.jd_url else 'N/A'}")
+    logger.info(f"JD Text provided: {bool(body.jd_text)}")
+    
     resume = storage.get_resume(body.user_id)
     if not resume:
+        logger.warning(f"❌ No resume found for user: {body.user_id}")
         raise HTTPException(404, "Upload a resume first")
+    
+    logger.info(f"✅ Resume found for user: {body.user_id}")
+    
     if not body.jd_text and not body.jd_url:
+        logger.warning("❌ No JD text or URL provided")
         raise HTTPException(422, "Provide jd_text or jd_url")
+    
     try:
+        logger.info("🔄 Invoking evaluation graph...")
         result = await evaluation_graph.ainvoke({
             "resume_md": resume["markdown"],
             "jd_text": body.jd_text,
             "jd_url": body.jd_url,
             "company_hint": body.company_hint,
         })
+        logger.info("✅ Evaluation graph completed successfully")
     except (JDFetchError, ValueError) as e:
+        log_error(e, context="evaluate_job")
         raise HTTPException(422, str(e))
+    except Exception as e:
+        log_error(e, context="evaluate_job")
+        raise
 
     ev = result["evaluation"]
     leg = result["legitimacy"]
+    
+    logger.info(f"💼 Company: {ev.company}, Role: {ev.role}")
+    logger.info(f"📊 Score: {ev.scores.global_score}, Archetype: {ev.archetype}")
+    logger.info(f"💡 Recommendation: {ev.recommendation}")
+    
     eval_id = storage.save_evaluation(
         body.user_id,
         company=ev.company,
@@ -56,6 +78,9 @@ async def evaluate_job(body: EvaluateIn):
         report_markdown=result["report_markdown"],
         keywords=ev.keywords,
     )
+    
+    logger.info(f"✅ Evaluation saved with ID: {eval_id}")
+    
     return EvaluationOut(
         evaluation_id=eval_id,
         user_id=body.user_id,
