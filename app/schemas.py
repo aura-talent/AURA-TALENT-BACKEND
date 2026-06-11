@@ -83,6 +83,7 @@ class EvaluationOut(BaseModel):
     legitimacy: LegitimacyAssessment
     report_markdown: str
     keywords: list[str]
+    jd_url: Optional[str] = None
 
 
 class CompareIn(BaseModel):

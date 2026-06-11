@@ -60,10 +60,7 @@ def compose_report(state: EvalState) -> dict:
     )
     report = f"""# Evaluation: {ev.company} — {ev.role}
 
-**URL:** {state.get('jd_url') or 'n/a'}
-**Archetype:** {ev.archetype}
-**Score:** {ev.scores.global_score}/5
-**Legitimacy:** {leg.tier}
+[Open Job]({state.get('jd_url') or '#'})
 
 > {ev.recommendation}
 
