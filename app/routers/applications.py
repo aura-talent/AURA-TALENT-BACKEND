@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
 from .. import storage
-from ..schemas import ApplicationOut, StatusUpdateIn
+from ..schemas import ApplicationOut, StatusUpdateIn, EvaluationOut
 
 router = APIRouter(prefix="/applications", tags=["applications"])
 
@@ -19,12 +19,25 @@ async def list_applications(user_id: str):
     ]
 
 
-@router.get("/{user_id}/{evaluation_id}/report")
+@router.get("/{user_id}/{evaluation_id}/report", response_model=EvaluationOut)
 async def get_report(user_id: str, evaluation_id: int):
     ev = storage.get_evaluation(user_id, evaluation_id)
     if not ev:
         raise HTTPException(404, "Evaluation not found")
-    return {"evaluation_id": evaluation_id, "report_markdown": ev["report_markdown"]}
+    return EvaluationOut(
+        evaluation_id=ev["id"],
+        user_id=ev["user_id"],
+        company=ev["company"],
+        role=ev["role"],
+        archetype=ev["archetype"],
+        score=ev["score"],
+        scores=ev["scores"],
+        recommendation=ev["recommendation"],
+        legitimacy=ev["legitimacy"],
+        report_markdown=ev["report_markdown"],
+        keywords=ev["keywords"],
+        jd_url=ev.get("jd_url"),
+    )
 
 
 @router.patch("/{user_id}/{evaluation_id}/status", response_model=dict)
