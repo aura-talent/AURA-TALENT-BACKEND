@@ -111,10 +111,18 @@ def save_evaluation(user_id: str, *, company: str, role: str, jd_url: str | None
             raise
 
     if existing_id is not None:
-        return existing_id
-    if write_res.data:
-        return write_res.data[0]["id"]
-    raise ValueError("Failed to insert evaluation")
+        final_id = existing_id
+    elif write_res.data:
+        final_id = write_res.data[0]["id"]
+    else:
+        raise ValueError("Failed to insert evaluation")
+
+    try:
+        _upsert_linked_application(user_id, company, role, final_id)
+    except Exception as e:
+        print("Failed to auto-upsert linked application:", e)
+
+    return final_id
 
 
 def get_evaluation(user_id: str, evaluation_id: int) -> dict | None:
@@ -150,6 +158,219 @@ def update_status(user_id: str, evaluation_id: int, status: str,
     res = supabase.table("evaluations")\
         .update(data)\
         .eq("id", evaluation_id)\
+        .eq("user_id", user_id)\
+        .execute()
+    return len(res.data) > 0
+
+
+def _status_update_payload(status: str, notes: str | None = None) -> dict:
+    data = {"status": status}
+    if notes is not None:
+        data["notes"] = notes
+    return data
+
+
+def update_application_status(user_id: str, application_id: str, status: str,
+                              notes: str | None = None) -> bool:
+    res = supabase.table("applications")\
+        .update(_status_update_payload(status, notes))\
+        .eq("id", application_id)\
+        .eq("user_id", user_id)\
+        .execute()
+    return len(res.data) > 0
+
+
+def update_application_status_by_evaluation(user_id: str, evaluation_id: int,
+                                            status: str, notes: str | None = None) -> bool:
+    res = supabase.table("applications")\
+        .update(_status_update_payload(status, notes))\
+        .eq("evaluation_id", evaluation_id)\
+        .eq("user_id", user_id)\
+        .execute()
+    return len(res.data) > 0
+
+
+def _upsert_linked_application(
+    user_id: str,
+    company: str,
+    role: str,
+    evaluation_id: int,
+    *,
+    evaluation_date: str | None = None,
+    initial_status: str = "Evaluated",
+) -> None:
+    # Link evaluation output into the tracker table without overwriting tracker-owned status.
+    res = supabase.table("applications")\
+        .select("id")\
+        .eq("user_id", user_id)\
+        .eq("company", company)\
+        .eq("role", role)\
+        .execute()
+    
+    today = evaluation_date or date.today().isoformat()
+    data = {
+        "user_id": user_id,
+        "company": company,
+        "role": role,
+        "evaluation_id": evaluation_id,
+    }
+    if res.data:
+        # Keep the application row as the tracker source of truth; only refresh the evaluation link.
+        supabase.table("applications").update(data).eq("id", res.data[0]["id"]).execute()
+    else:
+        # Create a tracker row from evaluation data.
+        data["status"] = initial_status or "Evaluated"
+        data["date"] = today
+        data["priority"] = "medium"
+        data["tags"] = ["AI-Evaluated"]
+        data["interviews"] = []
+        data["timeline"] = [
+            {"date": today, "title": "Job Evaluated", "description": "Successfully ran AI score alignment check.", "custom": False}
+        ]
+        supabase.table("applications").insert(data).execute()
+
+
+def sync_evaluations_to_applications(user_id: str) -> None:
+    """Backfill tracker rows for evaluations created before the applications table existed."""
+    evals = supabase.table("evaluations")\
+        .select("id, company, role, date, status")\
+        .eq("user_id", user_id)\
+        .execute()
+
+    for ev in evals.data or []:
+        _upsert_linked_application(
+            user_id=user_id,
+            company=ev["company"],
+            role=ev["role"],
+            evaluation_id=ev["id"],
+            evaluation_date=ev.get("date"),
+            initial_status=ev.get("status") or "Evaluated",
+        )
+
+
+def list_applications(user_id: str) -> list[dict]:
+    try:
+        sync_evaluations_to_applications(user_id)
+
+        res = supabase.table("applications")\
+            .select("*")\
+            .eq("user_id", user_id)\
+            .execute()
+        
+        # Fetch evaluations to map score
+        evals = supabase.table("evaluations")\
+            .select("id, score")\
+            .eq("user_id", user_id)\
+            .execute()
+        
+        eval_map = {e["id"]: e["score"] for e in evals.data} if evals.data else {}
+        
+        out = []
+        for app in res.data:
+            eval_id = app.get("evaluation_id")
+            score = eval_map.get(eval_id, 0.0) if eval_id else 0.0
+            out.append({
+                "evaluation_id": eval_id or 0,
+                "id": app["id"],
+                "date": app.get("date") or "",
+                "company": app["company"],
+                "role": app["role"],
+                "score": score,
+                "status": app["status"],
+                "interview_type": app.get("interview_type") or "none",
+                "mock_interview_done": bool(app.get("mock_interview_done")),
+                "notes": app.get("notes") or "",
+                "attachments": app.get("attachments") or [],
+                "priority": app.get("priority") or "medium",
+                "tags": app.get("tags") or [],
+                "interviews": app.get("interviews") or [],
+                "timeline": app.get("timeline") or [],
+            })
+        return out
+    except Exception as e:
+        print("Error listing applications:", e)
+        return []
+
+
+def create_manual_application(user_id: str, company: str, role: str, status: str = "Applied") -> dict:
+    today = date.today().isoformat()
+    default_timeline = [
+        {"date": today, "title": "Application Created", "description": f"Manually added to your tracker as '{status}'.", "custom": False}
+    ]
+    data = {
+        "user_id": user_id,
+        "company": company,
+        "role": role,
+        "status": status,
+        "date": today,
+        "priority": "medium",
+        "tags": [],
+        "interviews": [],
+        "timeline": default_timeline,
+    }
+    res = supabase.table("applications").insert(data).execute()
+    if res.data:
+        app = res.data[0]
+        return {
+            "evaluation_id": 0,
+            "id": app["id"],
+            "date": app.get("date") or "",
+            "company": app["company"],
+            "role": app["role"],
+            "score": 0.0,
+            "status": app["status"],
+            "interview_type": app.get("interview_type") or "none",
+            "mock_interview_done": bool(app.get("mock_interview_done")),
+            "notes": app.get("notes") or "",
+            "attachments": app.get("attachments") or [],
+            "priority": app.get("priority") or "medium",
+            "tags": app.get("tags") or [],
+            "interviews": app.get("interviews") or [],
+            "timeline": app.get("timeline") or [],
+        }
+    raise ValueError("Failed to create manual application")
+
+
+def update_application_details(user_id: str, application_id: str, status: str, interview_type: str,
+                               mock_interview_done: bool, notes: str, attachments: list,
+                               priority: str, tags: list, interviews: list, timeline: list) -> bool:
+    data = {
+        "status": status,
+        "interview_type": interview_type,
+        "mock_interview_done": mock_interview_done,
+        "notes": notes,
+        "attachments": attachments,
+        "priority": priority,
+        "tags": tags,
+        "interviews": interviews,
+        "timeline": timeline
+    }
+    try:
+        res = supabase.table("applications")\
+            .update(data)\
+            .eq("id", application_id)\
+            .eq("user_id", user_id)\
+            .execute()
+        return len(res.data) > 0
+    except Exception as e:
+        print(f"Error updating application {application_id}:", e)
+        # Fallback: try a minimal update (status only) in case some columns don't exist yet
+        try:
+            res = supabase.table("applications")\
+                .update({"status": status, "notes": notes})\
+                .eq("id", application_id)\
+                .eq("user_id", user_id)\
+                .execute()
+            return len(res.data) > 0
+        except Exception as e2:
+            print(f"Fallback update also failed for {application_id}:", e2)
+            return False
+
+
+def delete_application(user_id: str, application_id: str) -> bool:
+    res = supabase.table("applications")\
+        .delete()\
+        .eq("id", application_id)\
         .eq("user_id", user_id)\
         .execute()
     return len(res.data) > 0

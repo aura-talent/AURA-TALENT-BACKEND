@@ -247,13 +247,39 @@ class ScanOut(BaseModel):
 
 
 class ApplicationOut(BaseModel):
+    id: str
     evaluation_id: int
     date: str
     company: str
     role: str
     score: float
     status: str
+    interview_type: str = "none"
+    mock_interview_done: bool = False
     notes: str = ""
+    attachments: list = []
+    priority: str = "medium"
+    tags: list = []
+    interviews: list = []
+    timeline: list = []
+
+
+class ApplicationIn(BaseModel):
+    company: str
+    role: str
+    status: str = "Applied"
+
+
+class ApplicationUpdateIn(BaseModel):
+    status: str
+    interview_type: str = "none"
+    mock_interview_done: bool = False
+    notes: str = ""
+    attachments: list = []
+    priority: str = "medium"
+    tags: list = []
+    interviews: list = []
+    timeline: list = []
 
 
 class StatusUpdateIn(BaseModel):
