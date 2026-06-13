@@ -56,6 +56,12 @@ class TailoredResume(BaseModel):
     keywords_covered: list[str] = Field(description="JD keywords now present in the resume")
 
 
+class TailoredCoverLetter(BaseModel):
+    cover_letter_markdown: str = Field(description="Complete tailored cover letter in markdown")
+    subject_line: str = Field(description="Concise email subject line for the application")
+    key_points: list[str] = Field(description="Key resume/JD alignment points used in the draft")
+
+
 # ── API request/response models ─────────────────────────────────────
 
 
@@ -170,6 +176,16 @@ class GenerateResumeOut(BaseModel):
     tailored_markdown: str
     change_summary: str = Field(description="Markdown summary of what was changed and why")
     keywords_covered: list[str] = []
+
+
+class CoverLetterIn(GenerateResumeIn):
+    pass
+
+
+class CoverLetterOut(BaseModel):
+    cover_letter_markdown: str
+    subject_line: str
+    key_points: list[str] = []
 
 
 class ResumePdfIn(BaseModel):

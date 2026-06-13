@@ -7,8 +7,13 @@ from typing import Optional, TypedDict
 from langgraph.graph import END, START, StateGraph
 
 from ..llm import get_llm
-from ..prompts import RESUME_GENERATE_SYSTEM, RESUME_PARSE_SYSTEM, RESUME_SUGGEST_SYSTEM
-from ..schemas import ParsedResume, TailoredResume
+from ..prompts import (
+    COVER_LETTER_GENERATE_SYSTEM,
+    RESUME_GENERATE_SYSTEM,
+    RESUME_PARSE_SYSTEM,
+    RESUME_SUGGEST_SYSTEM,
+)
+from ..schemas import ParsedResume, TailoredCoverLetter, TailoredResume
 from ..services.jd_fetch import fetch_jd_text
 
 # ── File extraction (pdf / docx / txt / md) ─────────────────────────
@@ -149,3 +154,42 @@ def build_generate_graph():
 
 
 generate_graph = build_generate_graph()
+
+
+# ── Cover letter graph (tailored letter for a specific JD) ──────────
+
+
+class CoverLetterState(GenerateState, total=False):
+    cover_letter: TailoredCoverLetter
+
+
+async def write_cover_letter(state: CoverLetterState) -> dict:
+    llm = get_llm(temperature=0.4).with_structured_output(TailoredCoverLetter)
+    sections = [
+        f"## Master resume\n\n{state['resume_md']}",
+        f"## Target job description\n\n{state['jd_text']}",
+    ]
+    if state.get("keywords_hint"):
+        sections.append(
+            "## ATS keywords from prior evaluation\n\n" + ", ".join(state["keywords_hint"])
+        )
+    if state.get("extra_instructions"):
+        sections.append(f"## Candidate instructions\n\n{state['extra_instructions']}")
+    cover_letter = await llm.ainvoke([
+        ("system", COVER_LETTER_GENERATE_SYSTEM),
+        ("human", "\n\n".join(sections)),
+    ])
+    return {"cover_letter": cover_letter}
+
+
+def build_cover_letter_graph():
+    g = StateGraph(CoverLetterState)
+    g.add_node("fetch_jd", fetch_jd_for_generate)
+    g.add_node("write_cover_letter", write_cover_letter)
+    g.add_edge(START, "fetch_jd")
+    g.add_edge("fetch_jd", "write_cover_letter")
+    g.add_edge("write_cover_letter", END)
+    return g.compile()
+
+
+cover_letter_graph = build_cover_letter_graph()
