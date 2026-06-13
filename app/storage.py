@@ -65,7 +65,8 @@ def get_resume(user_id: str) -> dict | None:
 def save_evaluation(user_id: str, *, company: str, role: str, jd_url: str | None,
                     archetype: str, score: float, scores: dict,
                     recommendation: str, legitimacy: dict,
-                    report_markdown: str, keywords: list[str]) -> int:
+                    report_markdown: str, keywords: list[str],
+                    salary: dict | None = None) -> int:
     # Check if there is an existing evaluation for user_id, company, and role
     res = supabase.table("evaluations")\
         .select("id")\
@@ -73,7 +74,7 @@ def save_evaluation(user_id: str, *, company: str, role: str, jd_url: str | None
         .eq("company", company)\
         .eq("role", role)\
         .execute()
-        
+
     data = {
         "user_id": user_id,
         "company": company,
@@ -88,16 +89,32 @@ def save_evaluation(user_id: str, *, company: str, role: str, jd_url: str | None
         "report_markdown": report_markdown,
         "keywords_json": json.dumps(keywords) if isinstance(keywords, list) else keywords,
     }
+    if salary is not None:
+        data["salary_json"] = json.dumps(salary)
 
-    if res.data:
-        eval_id = res.data[0]["id"]
-        supabase.table("evaluations").update(data).eq("id", eval_id).execute()
-        return eval_id
-    else:
-        insert_res = supabase.table("evaluations").insert(data).execute()
-        if insert_res.data:
-            return insert_res.data[0]["id"]
-        raise ValueError("Failed to insert evaluation")
+    existing_id = res.data[0]["id"] if res.data else None
+
+    def _write(payload: dict):
+        if existing_id is not None:
+            return supabase.table("evaluations").update(payload).eq("id", existing_id).execute()
+        return supabase.table("evaluations").insert(payload).execute()
+
+    try:
+        write_res = _write(data)
+    except Exception as e:
+        # Tolerate a DB that hasn't had the salary_json column added yet:
+        # retry without it so evaluations still persist.
+        if "salary_json" in data and "salary_json" in str(e):
+            data.pop("salary_json")
+            write_res = _write(data)
+        else:
+            raise
+
+    if existing_id is not None:
+        return existing_id
+    if write_res.data:
+        return write_res.data[0]["id"]
+    raise ValueError("Failed to insert evaluation")
 
 
 def get_evaluation(user_id: str, evaluation_id: int) -> dict | None:
@@ -209,6 +226,10 @@ def _eval_row(row: dict) -> dict:
     if isinstance(keywords, str):
         keywords = json.loads(keywords)
 
+    salary = row.get("salary_json")
+    if isinstance(salary, str):
+        salary = json.loads(salary) if salary else None
+
     return {
         "id": row["id"],
         "user_id": row["user_id"],
@@ -223,6 +244,7 @@ def _eval_row(row: dict) -> dict:
         "legitimacy": legitimacy,
         "report_markdown": row["report_markdown"],
         "keywords": keywords,
+        "salary": salary,
         "status": row["status"],
         "notes": row["notes"] or "",
     }

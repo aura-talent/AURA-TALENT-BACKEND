@@ -16,6 +16,7 @@ router = APIRouter(prefix="/jobs", tags=["jobs"])
 _EVAL_NODE_LABELS = {
     "fetch_jd": "Fetching job description...",
     "evaluate_blocks": "Evaluating fit (blocks A–F)...",
+    "estimate_salary": "Estimating compensation...",
     "assess_legitimacy": "Assessing posting legitimacy...",
     "compose_report": "Composing report...",
 }
@@ -62,11 +63,12 @@ async def evaluate_job(body: EvaluateIn):
 
     ev = result["evaluation"]
     leg = result["legitimacy"]
-    
+    salary = result.get("salary")
+
     logger.info(f"💼 Company: {ev.company}, Role: {ev.role}")
     logger.info(f"📊 Score: {ev.scores.global_score}, Archetype: {ev.archetype}")
     logger.info(f"💡 Recommendation: {ev.recommendation}")
-    
+
     eval_id = storage.save_evaluation(
         body.user_id,
         company=ev.company,
@@ -79,10 +81,11 @@ async def evaluate_job(body: EvaluateIn):
         legitimacy=leg.model_dump(),
         report_markdown=result["report_markdown"],
         keywords=ev.keywords,
+        salary=salary.model_dump() if salary else None,
     )
-    
+
     logger.info(f"✅ Evaluation saved with ID: {eval_id}")
-    
+
     return EvaluationOut(
         evaluation_id=eval_id,
         user_id=body.user_id,
@@ -95,6 +98,7 @@ async def evaluate_job(body: EvaluateIn):
         legitimacy=leg,
         report_markdown=result["report_markdown"],
         keywords=ev.keywords,
+        salary=salary,
     )
 
 
@@ -154,9 +158,10 @@ async def evaluate_job_stream(body: EvaluateIn):
             
             ev = final_result["evaluation"]
             leg = final_result["legitimacy"]
-            
+            salary = final_result.get("salary")
+
             logger.info(f"💼 Company: {ev.company}, Role: {ev.role}, Score: {ev.scores.global_score}")
-            
+
             eval_id = storage.save_evaluation(
                 body.user_id,
                 company=ev.company,
@@ -169,10 +174,11 @@ async def evaluate_job_stream(body: EvaluateIn):
                 legitimacy=leg.model_dump(),
                 report_markdown=final_result["report_markdown"],
                 keywords=ev.keywords,
+                salary=salary.model_dump() if salary else None,
             )
-            
+
             logger.info(f"✅ Evaluation saved with ID: {eval_id}")
-            
+
             out = EvaluationOut(
                 evaluation_id=eval_id,
                 user_id=body.user_id,
@@ -185,6 +191,7 @@ async def evaluate_job_stream(body: EvaluateIn):
                 legitimacy=leg,
                 report_markdown=final_result["report_markdown"],
                 keywords=ev.keywords,
+                salary=salary,
             )
             
             result_msg = _sse("result", out.model_dump())

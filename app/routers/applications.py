@@ -37,6 +37,7 @@ async def get_report(user_id: str, evaluation_id: int):
         report_markdown=ev["report_markdown"],
         keywords=ev["keywords"],
         jd_url=ev.get("jd_url"),
+        salary=ev.get("salary"),
     )
 
 
