@@ -5,8 +5,10 @@ from fastapi import APIRouter, File, Form, HTTPException, Response, UploadFile
 from fastapi.responses import StreamingResponse
 
 from .. import storage
-from ..graphs.resume import extract_text, generate_graph, parse_graph, suggest_graph
+from ..graphs.resume import cover_letter_graph, extract_text, generate_graph, parse_graph, suggest_graph
 from ..schemas import (
+    CoverLetterIn,
+    CoverLetterOut,
     GenerateResumeIn,
     GenerateResumeOut,
     ResumeOut,
@@ -28,6 +30,11 @@ _SUGGEST_NODE_LABELS = {
 _GENERATE_NODE_LABELS = {
     "fetch_jd": "Fetching job description...",
     "tailor_resume": "Writing your tailored resume...",
+}
+
+_COVER_LETTER_NODE_LABELS = {
+    "fetch_jd": "Fetching job description...",
+    "write_cover_letter": "Drafting your cover letter...",
 }
 
 
@@ -59,15 +66,6 @@ async def submit_resume_text(body: ResumeTextIn):
     if len(body.text.strip()) < 100:
         raise HTTPException(422, "Resume text too short")
     return await _parse_and_save(body.user_id, body.text)
-
-
-@router.get("/{user_id}", response_model=ResumeOut)
-async def get_resume(user_id: str):
-    verify_user_role(user_id, ["candidate", "employer"])
-    resume = storage.get_resume(user_id)
-    if not resume:
-        raise HTTPException(404, "No resume found for this user")
-    return ResumeOut(**resume)
 
 
 @router.post("/suggestions", response_model=SuggestOut)
@@ -154,6 +152,15 @@ def _generate_state(body: GenerateResumeIn) -> dict:
     }
 
 
+def _cover_letter_out(result: dict) -> CoverLetterOut:
+    letter = result["cover_letter"]
+    return CoverLetterOut(
+        cover_letter_markdown=letter.cover_letter_markdown,
+        subject_line=letter.subject_line,
+        key_points=letter.key_points,
+    )
+
+
 @router.post("/generate", response_model=GenerateResumeOut)
 async def generate_resume(body: GenerateResumeIn):
     """Generate a complete resume tailored to a JD (full rewrite, not just
@@ -207,6 +214,52 @@ async def generate_resume_stream(body: GenerateResumeIn):
     return StreamingResponse(generate(), media_type="text/event-stream")
 
 
+@router.post("/cover-letter", response_model=CoverLetterOut)
+async def generate_cover_letter(body: CoverLetterIn):
+    """Generate a tailored cover letter from the user's saved resume plus
+    jd_text, jd_url, or a previous evaluation_id."""
+    verify_user_role(body.user_id, ["candidate"])
+    state = _generate_state(body)
+    try:
+        result = await cover_letter_graph.ainvoke(state)
+    except (JDFetchError, ValueError) as e:
+        raise HTTPException(422, str(e))
+    return _cover_letter_out(result)
+
+
+@router.post("/cover-letter/stream")
+async def generate_cover_letter_stream(body: CoverLetterIn):
+    """Same as /cover-letter but streams SSE progress events, then the final
+    result."""
+    verify_user_role(body.user_id, ["candidate"])
+    state = _generate_state(body)
+
+    async def generate():
+        try:
+            final_result = None
+            async for event in cover_letter_graph.astream_events(state, version="v2"):
+                if event["event"] == "on_chain_start" and event["name"] in _COVER_LETTER_NODE_LABELS:
+                    yield _sse("progress", {
+                        "node": event["name"],
+                        "message": _COVER_LETTER_NODE_LABELS[event["name"]],
+                    })
+                if event["event"] == "on_chain_end" and event.get("name") == "LangGraph":
+                    final_result = event.get("data", {}).get("output")
+
+            if not final_result:
+                final_result = await cover_letter_graph.ainvoke(state)
+
+            yield _sse("result", _cover_letter_out(final_result).model_dump())
+        except (JDFetchError, ValueError) as e:
+            log_error(e, context="generate_cover_letter_stream")
+            yield _sse("error", {"detail": str(e)})
+        except Exception as e:
+            log_error(e, context="generate_cover_letter_stream")
+            yield _sse("error", {"detail": "Internal server error"})
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
+
+
 @router.post("/pdf")
 async def resume_pdf(body: ResumePdfIn):
     """Render resume markdown (e.g. /generate output, possibly user-edited)
@@ -221,6 +274,15 @@ async def resume_pdf(body: ResumePdfIn):
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{name}.pdf"'},
     )
+
+
+@router.get("/{user_id}", response_model=ResumeOut)
+async def get_resume(user_id: str):
+    verify_user_role(user_id, ["candidate", "employer"])
+    resume = storage.get_resume(user_id)
+    if not resume:
+        raise HTTPException(404, "No resume found for this user")
+    return ResumeOut(**resume)
 
 
 async def _parse_and_save(user_id: str, raw_text: str) -> ResumeOut:
