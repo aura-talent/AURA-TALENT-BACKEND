@@ -91,20 +91,34 @@ def compose_report(state: CareerPathState) -> dict:
     blocks = []
     for i, route in enumerate(plan.routes, 1):
         gaps = "\n".join(f"  - {g}" for g in route.skill_gaps) or "  - (none identified)"
-        steps = "\n".join(f"  - {s}" for s in route.next_steps) or "  - (none identified)"
+        if route.moves:
+            move_rows = "\n".join(
+                f"| {m.category} | {m.action} | {m.why} | {m.effort} | {m.timeframe} |"
+                for m in route.moves
+            )
+            moves_md = (
+                "**Moves to climb this route:**\n\n"
+                "| Type | Action | Why it works | Effort | Timeframe |\n"
+                "|------|--------|--------------|--------|-----------|\n"
+                f"{move_rows}\n"
+            )
+        else:
+            moves_md = "**Moves to climb this route:** (none identified)\n"
         blocks.append(
             f"### {i}. {route.title}  \n"
             f"**Archetype:** {route.archetype} · **Fit:** {route.fit}/5 · "
             f"**Horizon:** {route.time_horizon}\n\n"
             f"{route.rationale}\n\n"
             f"**Skill gaps to close:**\n{gaps}\n\n"
-            f"**Next steps:**\n{steps}\n"
+            f"{moves_md}"
         )
 
     routes_md = "\n".join(blocks)
     report = f"""# Career Path Navigator
 
 > {plan.current_assessment}
+
+**🎯 Do this first:** {plan.first_move}
 
 ---
 

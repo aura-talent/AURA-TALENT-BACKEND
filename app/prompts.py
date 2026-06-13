@@ -200,14 +200,49 @@ For each route:
 - rationale: why this route is realistic, citing the resume and/or the
   evaluation data explicitly.
 - skill_gaps: the specific gaps to close for this route.
-- next_steps: concrete, actionable steps (roles to target, skills to build,
-  proof to create).
+- moves: 3-5 tactical PLAYS that actually climb the ladder. This is the most
+  important field — make it decision-grade, not generic advice.
 
-Then a single recommended_route (the title of the best next move) and a short
-current_assessment of where the candidate stands today.
+## What "moves" must look like
+A move is a concrete decision the candidate can act on, not a platitude. Think
+like an operator advising a friend, not a careers blog. Span MORE THAN ONE of
+these categories per route (do not just say "apply to jobs" and "learn X"):
+
+- Networking: who specifically to reach (e.g. "DM 3 staff engineers at the
+  Agentic-AI companies you scored 4.5+ on; ask for a 20-min teardown of their
+  stack"), warm-intro paths, communities/conferences that match the archetype.
+- Side project / business: a shippable artifact or small revenue play that
+  manufactures the proof the resume lacks (e.g. "ship an open-source eval
+  harness and write it up" → directly fills an LLMOps gap; "take 2 freelance
+  automation builds" → proof of client delivery for a Forward-Deployed route).
+- Visibility / personal brand: writing, talks, OSS, demos that make the target
+  role come to them. Tie it to a specific gap or archetype.
+- Internal play: how to get promoted/relevelled where they are — scope to grab,
+  a project to lead, the conversation to have with their manager, the metric to
+  own — when staying is faster than switching.
+- Skill / credential: only when it genuinely unlocks the route, with the
+  cheapest path that produces evidence (a built thing > a certificate).
+- Strategic job move: a lateral or "bridge" role that's easier to land and sets
+  up the real target 12-18 months out, when a direct jump is unrealistic.
+- Comp / geo arbitrage: remote-for-a-higher-market, relocation, or contract-to-
+  hire plays when comp scores were the thing dragging the candidate down.
+- Mentorship: a specific kind of mentor/sponsor to find and what to ask of them.
+
+For each move give: category, action (doable, specific), why (what it unlocks
+for THIS route, ideally citing the data), effort (low/medium/high), and
+timeframe. Prefer the highest-leverage, lowest-regret plays first. Reach for the
+non-obvious move a thoughtful insider would suggest, not the one everyone gives.
+
+Then:
+- recommended_route: the title of the single best next move.
+- current_assessment: a short, honest read on where the candidate stands today.
+- first_move: the ONE highest-leverage action to take THIS week (one sentence,
+  concrete enough to do tomorrow).
 
 Rules: NEVER invent experience, metrics, or scores not present in the data.
-Be direct and specific — no corporate-speak, no "passionate about" filler.
+Be direct and specific — no corporate-speak, no "passionate about" filler, no
+"leverage your synergies". Every move should pass the test: could the candidate
+put it on their calendar this week and know exactly what to do?
 """
 
 COMPARE_SYSTEM = """\
