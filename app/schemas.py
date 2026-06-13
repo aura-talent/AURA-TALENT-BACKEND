@@ -29,6 +29,107 @@ class EvaluationBlocks(BaseModel):
     keywords: list[str] = Field(description="15-20 ATS keywords from the JD")
 
 
+class SalaryBand(BaseModel):
+    low: float = Field(description="~25th percentile, base salary")
+    mid: float = Field(description="~50th percentile / median, base salary")
+    high: float = Field(description="~75th percentile, base salary")
+
+
+class SalaryGap(BaseModel):
+    verdict: str = Field(description="below | fair | above — posted range vs role worth")
+    delta_pct: float = Field(description="Signed %: posted midpoint vs role_worth midpoint")
+    note: str = Field(description="One sentence explaining the gap in plain language")
+
+
+class SalaryNegotiation(BaseModel):
+    anchor: float = Field(description="The base figure to anchor the ask at")
+    line: str = Field(description="One-sentence justification the candidate can say")
+
+
+class SalaryReasoning(BaseModel):
+    """LLM structured output for the salary node. Market grounding (Adzuna)
+    is injected separately; here the model interpolates for the specific
+    role, seniority and skill stack, and writes the human-facing copy."""
+
+    currency: str = Field(description="ISO 4217, e.g. USD, GBP, MYR — infer from JD/location")
+    period: str = Field(description="year | month | hour")
+    role_worth: SalaryBand = Field(description="What this role should pay (base)")
+    candidate_worth: Optional[SalaryBand] = Field(
+        default=None, description="What the candidate is worth from their resume, if inferable"
+    )
+    total_comp_high: Optional[float] = Field(
+        default=None, description="Realistic ceiling including bonus/equity, if applicable"
+    )
+    posted_low: Optional[float] = Field(default=None, description="Posted range low, if stated in JD")
+    posted_high: Optional[float] = Field(default=None, description="Posted range high, if stated in JD")
+    gap: Optional[SalaryGap] = Field(default=None, description="Only when a posted range exists")
+    negotiation: Optional[SalaryNegotiation] = None
+    confidence: str = Field(description="high | medium | low — be honest when data is thin")
+    location_basis: str = Field(description="e.g. 'Remote (US national)', 'Kuala Lumpur, MY'")
+
+
+class SalaryEstimate(BaseModel):
+    """Assembled salary intelligence returned to the client. Mirrors the
+    frontend SalaryEstimate type; provenance fields keep the UI honest."""
+
+    currency: str
+    period: str
+    role_worth: SalaryBand
+    candidate_worth: Optional[SalaryBand] = None
+    total_comp_high: Optional[float] = None
+    posted: Optional[dict] = None  # {"low": float?, "high": float?}
+    gap: Optional[SalaryGap] = None
+    negotiation: Optional[SalaryNegotiation] = None
+    confidence: str
+    sources: list[str] = []
+    as_of: str
+    location_basis: str
+
+
+class SkillDelta(BaseModel):
+    skill: str = Field(description="A skill or signal the candidate could add/strengthen")
+    delta_pct: float = Field(description="Approx % it would move the median, e.g. 6 for +6%")
+    note: str = Field(description="One short clause on why")
+
+
+class SelfWorthReasoning(BaseModel):
+    """LLM structured output for the candidate's own market worth."""
+
+    currency: str = Field(description="ISO 4217 inferred from location, default USD")
+    period: str = Field(description="year | month | hour")
+    worth: SalaryBand = Field(description="What the candidate is worth, base salary")
+    total_comp_high: Optional[float] = Field(
+        default=None, description="Realistic ceiling incl. bonus/equity"
+    )
+    confidence: str = Field(description="high | medium | low — honest about thin data")
+    location_basis: str = Field(description="What the figures are normalized to")
+    headline_role: str = Field(description="The role title the band is priced for")
+    summary: str = Field(description="2-3 sentence plain-language read on their market position")
+    skill_deltas: list[SkillDelta] = Field(
+        description="3-5 highest-leverage skills/signals that would raise the band"
+    )
+
+
+class SelfWorthIn(BaseModel):
+    user_id: str
+    location: Optional[str] = Field(default=None, description="User's target market, e.g. 'Remote', 'Singapore'")
+    currency: Optional[str] = Field(default=None, description="Override currency, ISO 4217")
+
+
+class SelfWorthOut(BaseModel):
+    currency: str
+    period: str
+    worth: SalaryBand
+    total_comp_high: Optional[float] = None
+    confidence: str
+    sources: list[str] = []
+    as_of: str
+    location_basis: str
+    headline_role: str
+    summary: str
+    skill_deltas: list[SkillDelta] = []
+
+
 class LegitimacySignal(BaseModel):
     signal: str
     finding: str
@@ -96,6 +197,7 @@ class EvaluationOut(BaseModel):
     report_markdown: str
     keywords: list[str]
     jd_url: Optional[str] = None
+    salary: Optional[SalaryEstimate] = None
 
 
 class CompareIn(BaseModel):
