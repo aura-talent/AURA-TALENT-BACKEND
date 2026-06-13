@@ -142,6 +142,22 @@ class LegitimacyAssessment(BaseModel):
     context_notes: str
 
 
+class CareerRoute(BaseModel):
+    title: str = Field(description="Concrete target role title")
+    archetype: str = Field(description="career-ops archetype, or 'X / Y' hybrid")
+    fit: float = Field(ge=1, le=5, description="How realistic this move is from the current position")
+    time_horizon: str = Field(description='e.g. "now", "6-12 months", "2+ years"')
+    rationale: str = Field(description="Why this route is realistic, citing resume/evaluation data")
+    skill_gaps: list[str] = Field(description="Specific gaps to close for this route")
+    next_steps: list[str] = Field(description="Concrete, actionable steps")
+
+
+class CareerPathPlan(BaseModel):
+    current_assessment: str = Field(description="Where the candidate stands today")
+    routes: list[CareerRoute] = Field(description="3-5 routes, most to least realistic")
+    recommended_route: str = Field(description="Title of the single best next move")
+
+
 class ParsedResume(BaseModel):
     markdown: str = Field(description="Clean markdown resume")
     full_name: Optional[str] = None
@@ -217,6 +233,27 @@ class SuggestIn(BaseModel):
 
 class SuggestOut(BaseModel):
     suggestions_markdown: str
+
+
+class CareerPathIn(BaseModel):
+    user_id: str
+    goal: Optional[str] = Field(
+        default=None, description="Optional aspiration/target the candidate is aiming for"
+    )
+    horizon: Optional[str] = Field(
+        default=None, description='Optional planning horizon, e.g. "2 years"'
+    )
+
+
+class CareerPathOut(BaseModel):
+    user_id: str
+    current_assessment: str
+    routes: list[CareerRoute]
+    recommended_route: str
+    evaluations_considered: int = Field(
+        description="How many of the candidate's evaluations fed the analysis"
+    )
+    report_markdown: str
 
 
 class ScanIn(BaseModel):
