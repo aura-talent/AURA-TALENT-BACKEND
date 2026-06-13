@@ -19,6 +19,13 @@ class Settings(BaseSettings):
     supabase_url: str = Field("", validation_alias=AliasChoices("SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL"))
     supabase_key: str = Field("", validation_alias=AliasChoices("SUPABASE_KEY", "NEXT_PUBLIC_SUPABASE_ANON_KEY", "NEXT_PUBLIC_SUPABASE_KEY"))
 
+    # Adzuna salary data (optional). Without these, salary estimates fall back
+    # to LLM-only with low confidence. key: https://developer.adzuna.com/
+    adzuna_app_id: str = ""
+    adzuna_app_key: str = ""
+    # Adzuna has no Malaysia coverage; MY roles fall back to LLM-only.
+    adzuna_country: str = "sg"
+
     class Config:
         env_file = ".env"
         extra = "ignore"
