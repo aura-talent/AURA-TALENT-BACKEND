@@ -142,6 +142,23 @@ class LegitimacyAssessment(BaseModel):
     context_notes: str
 
 
+class CareerMove(BaseModel):
+    """One concrete, tactical play that moves the candidate toward a route —
+    deliberately broader than 'apply to a job' or 'learn a skill'."""
+
+    category: str = Field(
+        description=(
+            "Networking | Side project / business | Visibility / personal brand | "
+            "Internal play | Skill / credential | Strategic job move | "
+            "Comp / geo arbitrage | Mentorship"
+        )
+    )
+    action: str = Field(description="The specific play, phrased as a doable action")
+    why: str = Field(description="Why this concrete move moves the needle for THIS route")
+    effort: str = Field(description="low | medium | high")
+    timeframe: str = Field(description='e.g. "2-4 weeks", "this quarter", "ongoing"')
+
+
 class CareerRoute(BaseModel):
     title: str = Field(description="Concrete target role title")
     archetype: str = Field(description="career-ops archetype, or 'X / Y' hybrid")
@@ -149,13 +166,19 @@ class CareerRoute(BaseModel):
     time_horizon: str = Field(description='e.g. "now", "6-12 months", "2+ years"')
     rationale: str = Field(description="Why this route is realistic, citing resume/evaluation data")
     skill_gaps: list[str] = Field(description="Specific gaps to close for this route")
-    next_steps: list[str] = Field(description="Concrete, actionable steps")
+    moves: list[CareerMove] = Field(
+        description="3-5 tactical plays to climb toward this route, spanning more "
+        "than one category (not only job applications)"
+    )
 
 
 class CareerPathPlan(BaseModel):
     current_assessment: str = Field(description="Where the candidate stands today")
     routes: list[CareerRoute] = Field(description="3-5 routes, most to least realistic")
     recommended_route: str = Field(description="Title of the single best next move")
+    first_move: str = Field(
+        description="The single highest-leverage action to take THIS week, in one sentence"
+    )
 
 
 class ParsedResume(BaseModel):
@@ -250,6 +273,7 @@ class CareerPathOut(BaseModel):
     current_assessment: str
     routes: list[CareerRoute]
     recommended_route: str
+    first_move: str = Field(description="Highest-leverage action to take this week")
     evaluations_considered: int = Field(
         description="How many of the candidate's evaluations fed the analysis"
     )

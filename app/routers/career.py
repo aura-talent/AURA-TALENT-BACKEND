@@ -48,6 +48,7 @@ def _path_out(body: CareerPathIn, result: dict, considered: int) -> CareerPathOu
         current_assessment=plan.current_assessment,
         routes=plan.routes,
         recommended_route=plan.recommended_route,
+        first_move=plan.first_move,
         evaluations_considered=considered,
         report_markdown=result["report_markdown"],
     )
