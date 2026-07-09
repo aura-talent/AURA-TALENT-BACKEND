@@ -314,6 +314,8 @@ class ApplicationOut(BaseModel):
     company: str
     role: str
     score: float
+    scores: Optional[dict] = None
+    user_id: Optional[str] = None
     status: str
     interview_type: str = "none"
     mock_interview_done: bool = False
@@ -402,3 +404,32 @@ class UserOut(BaseModel):
 class MigrateIn(BaseModel):
     anon_id: str
     auth_id: str
+
+
+# ── Employer-driven pipeline ─────────────────────────────────────────
+
+
+class PipelineStageOut(BaseModel):
+    """One employer pipeline update record returned to the candidate."""
+    id: str
+    employer_id: str
+    application_id: Optional[str] = None
+    candidate_user_id: Optional[str] = None
+    candidate_name: str
+    job_title: str
+    stage: str
+    stage_index: int
+    note: str = ""
+    updated_at: str
+
+
+class PipelineUpdateIn(BaseModel):
+    """Payload when an employer posts a pipeline stage update via the backend."""
+    employer_id: str
+    application_id: Optional[str] = None
+    candidate_user_id: Optional[str] = None
+    candidate_name: str
+    job_title: str
+    stage: str
+    stage_index: int
+    note: str = ""
