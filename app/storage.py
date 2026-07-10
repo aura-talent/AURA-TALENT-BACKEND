@@ -154,7 +154,7 @@ def update_status(user_id: str, evaluation_id: int, status: str,
     data = {"status": status}
     if notes is not None:
         data["notes"] = notes
-    
+
     res = supabase.table("evaluations")\
         .update(data)\
         .eq("id", evaluation_id)\
@@ -206,7 +206,7 @@ def _upsert_linked_application(
         .eq("company", company)\
         .eq("role", role)\
         .execute()
-    
+
     today = evaluation_date or date.today().isoformat()
     data = {
         "user_id": user_id,
@@ -248,6 +248,53 @@ def sync_evaluations_to_applications(user_id: str) -> None:
         )
 
 
+def get_all_applications() -> list[dict]:
+    """Fetch all applications globally (for employer view)."""
+    res = supabase.table("applications").select("*").order("date", desc=True).execute()
+    if not res.data:
+        return []
+
+    evals = supabase.table("evaluations").select("id, score, scores_json").execute()
+    eval_map = {}
+    scores_map = {}
+    for e in (evals.data or []):
+        eval_map[e["id"]] = e["score"]
+        s_json = e.get("scores_json") or "{}"
+        if isinstance(s_json, str):
+            try:
+                scores_map[e["id"]] = json.loads(s_json)
+            except Exception:
+                scores_map[e["id"]] = {}
+        else:
+            scores_map[e["id"]] = s_json
+
+    out = []
+    for app in res.data:
+        eval_id = app.get("evaluation_id")
+        score = eval_map.get(eval_id, 0.0) if eval_id else 0.0
+        scores = scores_map.get(eval_id) if eval_id else None
+        out.append({
+            "evaluation_id": eval_id or 0,
+            "id": app["id"],
+            "user_id": app.get("user_id") or "",
+            "date": app.get("date") or "",
+            "company": app["company"],
+            "role": app["role"],
+            "score": score,
+            "scores": scores,
+            "status": app["status"],
+            "interview_type": app.get("interview_type") or "none",
+            "mock_interview_done": bool(app.get("mock_interview_done")),
+            "notes": app.get("notes") or "",
+            "attachments": app.get("attachments") or [],
+            "priority": app.get("priority") or "medium",
+            "tags": app.get("tags") or [],
+            "interviews": app.get("interviews") or [],
+            "timeline": app.get("timeline") or [],
+        })
+    return out
+
+
 def list_applications(user_id: str) -> list[dict]:
     try:
         sync_evaluations_to_applications(user_id)
@@ -256,19 +303,30 @@ def list_applications(user_id: str) -> list[dict]:
             .select("*")\
             .eq("user_id", user_id)\
             .execute()
-        
-        # Fetch evaluations to map score
+
+        # Fetch evaluations to map score and scores
         evals = supabase.table("evaluations")\
-            .select("id, score")\
+            .select("id, score, scores_json")\
             .eq("user_id", user_id)\
             .execute()
-        
+
         eval_map = {e["id"]: e["score"] for e in evals.data} if evals.data else {}
-        
+        scores_map = {}
+        for e in (evals.data or []):
+            s_json = e.get("scores_json") or "{}"
+            if isinstance(s_json, str):
+                try:
+                    scores_map[e["id"]] = json.loads(s_json)
+                except Exception:
+                    scores_map[e["id"]] = {}
+            else:
+                scores_map[e["id"]] = s_json
+
         out = []
         for app in res.data:
             eval_id = app.get("evaluation_id")
             score = eval_map.get(eval_id, 0.0) if eval_id else 0.0
+            scores = scores_map.get(eval_id) if eval_id else None
             out.append({
                 "evaluation_id": eval_id or 0,
                 "id": app["id"],
@@ -276,6 +334,7 @@ def list_applications(user_id: str) -> list[dict]:
                 "company": app["company"],
                 "role": app["role"],
                 "score": score,
+                "scores": scores,
                 "status": app["status"],
                 "interview_type": app.get("interview_type") or "none",
                 "mock_interview_done": bool(app.get("mock_interview_done")),
@@ -422,14 +481,14 @@ def get_user_profile(user_id: str) -> dict | None:
 def migrate_user_data(anon_id: str, auth_id: str) -> None:
     # Check if auth_id already has a resume
     res = supabase.table("resumes").select("user_id").eq("user_id", auth_id).execute()
-    
+
     if not res.data:
         # Reassign anonymous resume to authenticated user
         supabase.table("resumes").update({"user_id": auth_id}).eq("user_id", anon_id).execute()
     else:
         # Delete anon resume to prevent duplicate
         supabase.table("resumes").delete().eq("user_id", anon_id).execute()
-        
+
     # Reassign evaluations
     supabase.table("evaluations").update({"user_id": auth_id}).eq("user_id", anon_id).execute()
 
@@ -469,3 +528,115 @@ def _eval_row(row: dict) -> dict:
         "status": row["status"],
         "notes": row["notes"] or "",
     }
+
+
+# ── Employer pipeline updates ─────────────────────────────────────────
+
+
+def get_pipeline_updates(candidate_user_id: str) -> list[dict]:
+    """Fetch all employer-pushed pipeline stage updates for a candidate."""
+    try:
+        res = supabase.table("employer_pipeline_updates") \
+            .select("*") \
+            .eq("candidate_user_id", candidate_user_id) \
+            .order("updated_at", desc=True) \
+            .execute()
+        out = []
+        for row in (res.data or []):
+            out.append({
+                "id": str(row.get("id", "")),
+                "employer_id": row.get("employer_id", ""),
+                "application_id": row.get("application_id") or None,
+                "candidate_user_id": row.get("candidate_user_id") or None,
+                "candidate_name": row.get("candidate_name", ""),
+                "job_title": row.get("job_title", ""),
+                "stage": row.get("stage", ""),
+                "stage_index": int(row.get("stage_index", 0)),
+                "note": row.get("note") or "",
+                "updated_at": str(row.get("updated_at", "")),
+            })
+        return out
+    except Exception as e:
+        print("Error fetching pipeline updates:", e)
+        return []
+
+
+def post_pipeline_update(
+    employer_id: str,
+    candidate_name: str,
+    job_title: str,
+    stage: str,
+    stage_index: int,
+    note: str = "",
+    candidate_user_id: str | None = None,
+    application_id: str | None = None,
+) -> dict | None:
+    """Record a new employer pipeline stage update."""
+    from datetime import datetime
+    data = {
+        "employer_id": employer_id,
+        "candidate_name": candidate_name,
+        "job_title": job_title,
+        "stage": stage,
+        "stage_index": stage_index,
+        "note": note,
+        "updated_at": datetime.utcnow().isoformat(),
+    }
+    if candidate_user_id:
+        data["candidate_user_id"] = candidate_user_id
+    if application_id:
+        data["application_id"] = application_id
+
+    # Auto-sync mapping: Employer Pipeline Stage -> Candidate Kanban Status
+    # Pipeline stages: "Application Received", "Under Review", "Shortlisted", "Interview Scheduled", "Assessment", "Offer Extended", "Hired", "Rejected"
+    # Kanban statuses: "Evaluated", "Applied", "Phone Screen", "Technical Test", "First Round", "Second Round", "Final Round", "Offer", "Rejected", "Withdrawn"
+    status_map = {
+        "Application Received": "Applied",
+        "Under Review": "Phone Screen",
+        "Shortlisted": "First Round",
+        "Interview Scheduled": "First Round",
+        "Assessment": "Technical Test",
+        "Offer Extended": "Offer",
+        "Hired": "Offer",
+        "Rejected": "Rejected",
+    }
+    mapped_status = status_map.get(stage)
+
+    try:
+        # If we mapped a status and we have the application_id, auto-update the application!
+        if mapped_status and application_id and candidate_user_id:
+            # We need to fetch the existing timeline to append to it
+            app_res = supabase.table("applications").select("timeline").eq("id", application_id).execute()
+            if app_res.data:
+                old_timeline = app_res.data[0].get("timeline") or []
+                today = datetime.utcnow().strftime("%Y-%m-%d")
+                new_timeline = old_timeline + [{
+                    "date": today,
+                    "title": f"Moved to {mapped_status}",
+                    "description": f"Employer advanced your application to {stage}.",
+                    "custom": False,
+                }]
+                
+                supabase.table("applications").update({
+                    "status": mapped_status,
+                    "timeline": new_timeline
+                }).eq("id", application_id).execute()
+
+        res = supabase.table("employer_pipeline_updates").insert(data).execute()
+        if res.data:
+            row = res.data[0]
+            return {
+                "id": str(row.get("id", "")),
+                "employer_id": row.get("employer_id", ""),
+                "application_id": row.get("application_id") or None,
+                "candidate_user_id": row.get("candidate_user_id") or None,
+                "candidate_name": row.get("candidate_name", ""),
+                "job_title": row.get("job_title", ""),
+                "stage": row.get("stage", ""),
+                "stage_index": int(row.get("stage_index", 0)),
+                "note": row.get("note") or "",
+                "updated_at": str(row.get("updated_at", "")),
+            }
+    except Exception as e:
+        print("Error posting pipeline update:", e)
+    return None
