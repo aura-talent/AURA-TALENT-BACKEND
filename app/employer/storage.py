@@ -374,3 +374,11 @@ def get_candidate_resume_md(candidate_user_id: str) -> str | None:
         .eq("user_id", candidate_user_id).execute()
     )
     return res.data[0]["markdown"] if res.data else None
+
+
+def get_candidate_resume(candidate_user_id: str) -> dict | None:
+    res = (
+        supabase.table("resumes").select("user_id, markdown, updated_at")
+        .eq("user_id", candidate_user_id).execute()
+    )
+    return res.data[0] if res.data else None

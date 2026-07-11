@@ -1,30 +1,32 @@
 """Agent 3 — Headhunter Sourcing. Persona-driven scan of the shared talent
 pool for one job:
 
-    load_context ──> scan_pool ──> shortlist ──> evaluate_fanout
+    load_context ──> scan_pool ──> shortlist ──> record_picks
 
 scan_pool is a query, not an LLM call. shortlist is where the persona lives —
 two headhunters scanning the same pool should surface different candidates.
-evaluate_fanout hands each pick to Agent 2's compiled graph (source =
-'headhunter'), whose persisted rows also feed the headhunter_stats view — no
-stat bookkeeping here.
+
+Scoring is owned entirely by the external scoring engine (see
+docs/scoring-engine-contract.md) — this graph does not evaluate candidates
+itself. record_picks just marks each shortlisted candidate as sourced
+(source='headhunter', headhunter_id set) with an unscored
+candidate_evaluations row; the external engine finds and scores those rows
+on its own schedule via POST /employer/talent-pool/evaluate. Those persisted
+rows also feed the headhunter_stats view once scored.
 """
 
-import asyncio
 from typing import TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
 from ...llm import get_llm
-from ...logging_config import log_error, logger
+from ...logging_config import logger
 from .. import storage
 from ..prompts import SHORTLIST_SYSTEM
 from ..schemas import ShortlistOutput, SourcingPick
-from .evaluate_candidate import evaluate_candidate_graph
 
 MAX_PICKS = 5           # per sourcing run — hackathon scale
 DIGEST_CHARS = 1200     # per-candidate resume digest fed to the shortlister
-EVAL_CONCURRENCY = 2
 
 
 class HeadhunterSourceState(TypedDict, total=False):
@@ -37,7 +39,7 @@ class HeadhunterSourceState(TypedDict, total=False):
     pool: list[dict]           # candidates not yet evaluated for this job
     # produced
     picks: list[SourcingPick]
-    evaluations: list[dict]    # persisted candidate_evaluations rows
+    sourced_rows: list[dict]   # unscored candidate_evaluations rows, one per pick
 
 
 async def load_context(state: HeadhunterSourceState) -> dict:
@@ -91,28 +93,22 @@ async def shortlist(state: HeadhunterSourceState) -> dict:
     return {"picks": picks}
 
 
-async def evaluate_fanout(state: HeadhunterSourceState) -> dict:
-    sem = asyncio.Semaphore(EVAL_CONCURRENCY)
-
-    async def _evaluate(pick: SourcingPick) -> dict | None:
-        async with sem:
-            try:
-                result = await evaluate_candidate_graph.ainvoke({
-                    "job_id": state["job_id"],
-                    "candidate_user_id": pick.candidate_user_id,
-                    "source": "headhunter",
-                    "headhunter_id": state["headhunter_id"],
-                })
-                return result["evaluation"]
-            except Exception as e:
-                # one bad candidate must not sink the whole sourcing run
-                log_error(e, context=f"sourcing eval {pick.candidate_user_id}")
-                return None
-
-    results = await asyncio.gather(*(_evaluate(p) for p in state["picks"]))
-    evaluations = [r for r in results if r]
-    logger.info(f"🕵️ Sourcing run complete: {len(evaluations)} evaluations persisted")
-    return {"evaluations": evaluations}
+async def record_picks(state: HeadhunterSourceState) -> dict:
+    """Mark each shortlisted candidate as sourced. No scoring happens here —
+    this creates a bare candidate_evaluations row (source='headhunter') that
+    the external scoring engine will find and fill in later."""
+    rows = []
+    for pick in state["picks"]:
+        row = storage.upsert_evaluation({
+            "job_id": state["job_id"],
+            "candidate_user_id": pick.candidate_user_id,
+            "source": "headhunter",
+            "headhunter_id": state["headhunter_id"],
+            "match_summary": pick.rationale,
+        })
+        rows.append(row)
+    logger.info(f"🕵️ Sourcing run complete: {len(rows)} candidates sourced")
+    return {"sourced_rows": rows}
 
 
 def build_headhunter_source_graph():
@@ -120,12 +116,12 @@ def build_headhunter_source_graph():
     g.add_node("load_context", load_context)
     g.add_node("scan_pool", scan_pool)
     g.add_node("shortlist", shortlist)
-    g.add_node("evaluate_fanout", evaluate_fanout)
+    g.add_node("record_picks", record_picks)
     g.add_edge(START, "load_context")
     g.add_edge("load_context", "scan_pool")
     g.add_edge("scan_pool", "shortlist")
-    g.add_edge("shortlist", "evaluate_fanout")
-    g.add_edge("evaluate_fanout", END)
+    g.add_edge("shortlist", "record_picks")
+    g.add_edge("record_picks", END)
     return g.compile()
 
 

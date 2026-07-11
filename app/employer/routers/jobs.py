@@ -1,14 +1,9 @@
 from fastapi import APIRouter, HTTPException
 
 from ...auth import verify_user_role
-from ...logging_config import log_error, logger
-from ...services.jd_fetch import JDFetchError
+from ...logging_config import logger
 from .. import storage
-from ..graphs.job_intake import (
-    generate_interview_questions,
-    job_intake_graph,
-)
-from ..schemas import JobCreate, JobDraftIn, JobDraftOut, JobUpdate
+from ..schemas import JobCreate, JobUpdate
 
 router = APIRouter(prefix="/jobs", tags=["employer:jobs"])
 
@@ -39,44 +34,6 @@ def _with_relations(job: dict, stats: dict | None = None) -> dict:
     if stats is not None:
         job["stats"] = stats
     return job
-
-
-@router.post("/draft")
-async def draft_job(body: JobDraftIn):
-    """Agent 1: draft a job from a freeform brief ("aura") or an existing
-    posting URL ("url"). Returns a draft + interview questions for the
-    editor — nothing is saved."""
-    verify_user_role(body.employer_id, ["employer"])
-    try:
-        result = await job_intake_graph.ainvoke({
-            "mode": body.mode,
-            "brief": body.brief,
-            "jd_url": body.jd_url,
-            "question_count": body.question_count,
-        })
-    except (JDFetchError, ValueError) as e:
-        log_error(e, context="draft_job")
-        raise HTTPException(422, str(e))
-    return {
-        "draft": result["draft"].model_dump(),
-        "interview_questions": result["interview_questions"],
-    }
-
-
-@router.post("/{job_id}/interview-questions")
-async def regenerate_questions(job_id: str, employer_id: str, count: int = 5):
-    """Regenerate interview questions for a saved job (customize page).
-    Returns the questions — PATCH the job to persist the ones kept."""
-    job = _require_owned_job(job_id, employer_id)
-    draft = JobDraftOut(
-        title=job["title"],
-        description=job.get("description") or job["title"],
-        keywords=job.get("keywords") or [],
-    )
-    result = await generate_interview_questions(
-        {"draft": draft, "question_count": count}
-    )
-    return {"interview_questions": result["interview_questions"]}
 
 
 @router.post("")

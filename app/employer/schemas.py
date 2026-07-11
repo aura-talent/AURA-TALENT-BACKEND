@@ -146,14 +146,26 @@ class InterviewQuestionsOut(BaseModel):
     questions: list[str]
 
 
-# ── Agent 2: candidate evaluation ────────────────────────────────────────
+# ── candidate evaluation ingestion ───────────────────────────────────────
+# The scoring algorithm (metrics, rubric, wlc_score — including how
+# metric_priorities and dimension_weights factor in) lives entirely in the
+# external scoring engine. This backend never computes a score; it only
+# accepts and persists whatever the engine submits. See
+# docs/scoring-engine-contract.md.
 
-class EvaluateCandidateIn(BaseModel):
-    employer_id: str
+class EvaluationSubmission(BaseModel):
     job_id: str
     candidate_user_id: str
     source: Literal["applied", "aura", "headhunter"] = "aura"
     headhunter_id: Optional[str] = None
+    resume_score: Optional[float] = None
+    interview_score: Optional[float] = None
+    metrics: Optional[dict[str, float]] = None
+    rubric: Optional[dict[str, float]] = None
+    wlc_score: float
+    matched_keywords: list[str] = Field(default_factory=list)
+    match_summary: Optional[str] = None
+    evidence: list[str] = Field(default_factory=list)
 
 
 class MetricScores(BaseModel):

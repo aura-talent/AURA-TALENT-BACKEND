@@ -1,10 +1,8 @@
 from fastapi import APIRouter, HTTPException
 
 from ...auth import verify_user_role
-from ...logging_config import log_error
 from .. import storage
-from ..graphs.evaluate_candidate import evaluate_candidate_graph
-from ..schemas import EvaluateCandidateIn
+from ..schemas import EvaluationSubmission
 
 router = APIRouter(prefix="/talent-pool", tags=["employer:talent-pool"])
 
@@ -59,25 +57,32 @@ async def list_job_evaluations(job_id: str, employer_id: str):
 
 
 @router.post("/evaluate")
-async def evaluate_candidate(body: EvaluateCandidateIn):
-    """Run the evaluation agent for one (job, candidate) pair. Upserts the
-    candidate_evaluations row — re-running rescores with the job's current
-    scoring config."""
-    verify_user_role(body.employer_id, ["employer"])
+async def submit_evaluation(body: EvaluationSubmission):
+    """Ingestion endpoint for the external scoring engine. This backend does
+    not compute anything here — the engine has already produced the full
+    result, including wlc_score; this just upserts it. Gated by the shared
+    X-API-Key only (see main.py) — there is no logged-in employer session
+    driving this call, it's a service-to-service submission."""
     job = storage.get_job(body.job_id)
-    if not job or job["employer_id"] != body.employer_id:
+    if not job:
         raise HTTPException(404, "Job not found")
-    try:
-        result = await evaluate_candidate_graph.ainvoke({
-            "job_id": body.job_id,
-            "candidate_user_id": body.candidate_user_id,
-            "source": body.source,
-            "headhunter_id": body.headhunter_id,
-        })
-    except ValueError as e:
-        log_error(e, context="evaluate_candidate")
-        raise HTTPException(422, str(e))
-    return result["evaluation"]
+    fields = body.model_dump(exclude_none=True)
+    return storage.upsert_evaluation(fields)
+
+
+@router.get("/candidates/{candidate_user_id}/resume")
+async def candidate_resume(candidate_user_id: str):
+    """Raw resume markdown for one candidate. Gated by the shared X-API-Key
+    only (see main.py) — primarily for the external scoring engine, which
+    has no employer session to check a role against."""
+    resume = storage.get_candidate_resume(candidate_user_id)
+    if not resume:
+        raise HTTPException(404, "No resume on file for this candidate")
+    return {
+        "candidate_user_id": candidate_user_id,
+        "resume_markdown": resume["markdown"],
+        "updated_at": resume["updated_at"],
+    }
 
 
 @router.get("/candidates/{candidate_user_id}")
