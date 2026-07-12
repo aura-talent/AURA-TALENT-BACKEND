@@ -214,7 +214,7 @@ async def compute_wlc(user_id: str, application_id: str):
         raise HTTPException(404, "No resume found for this candidate. They must upload a resume first.")
 
     # 2. Fetch application to get company + role
-    app_res = storage.supabase.table("applications").select("company, role, evaluation_id").eq("id", application_id).execute()
+    app_res = storage.supabase.table("job_applications").select("company, role, evaluation_id").eq("id", application_id).execute()
     if not app_res.data:
         raise HTTPException(404, "Application not found")
     app_row = app_res.data[0]
@@ -296,7 +296,7 @@ Do not hallucinate missing experience.
             keywords=ev.keywords,
         )
         # Link the evaluation to the application
-        storage.supabase.table("applications").update({
+        storage.supabase.table("job_applications").update({
             "evaluation_id": new_eval_id
         }).eq("id", application_id).execute()
 

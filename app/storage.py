@@ -190,20 +190,20 @@ def _status_update_payload(status: str, notes: str | None = None) -> dict:
 
 def update_application_status(user_id: str, application_id: str, status: str,
                               notes: str | None = None) -> bool:
-    res = supabase.table("applications")\
+    res = supabase.table("job_applications")\
         .update(_status_update_payload(status, notes))\
         .eq("id", application_id)\
-        .eq("user_id", user_id)\
+        .eq("candidate_user_id", user_id)\
         .execute()
     return len(res.data) > 0
 
 
 def update_application_status_by_evaluation(user_id: str, evaluation_id: int,
                                             status: str, notes: str | None = None) -> bool:
-    res = supabase.table("applications")\
+    res = supabase.table("job_applications")\
         .update(_status_update_payload(status, notes))\
         .eq("evaluation_id", evaluation_id)\
-        .eq("user_id", user_id)\
+        .eq("candidate_user_id", user_id)\
         .execute()
     return len(res.data) > 0
 
@@ -218,23 +218,23 @@ def _upsert_linked_application(
     initial_status: str = "Evaluated",
 ) -> None:
     # Link evaluation output into the tracker table without overwriting tracker-owned status.
-    res = supabase.table("applications")\
+    res = supabase.table("job_applications")\
         .select("id")\
-        .eq("user_id", user_id)\
+        .eq("candidate_user_id", user_id)\
         .eq("company", company)\
         .eq("role", role)\
         .execute()
 
     today = evaluation_date or date.today().isoformat()
     data = {
-        "user_id": user_id,
+        "candidate_user_id": user_id,
         "company": company,
         "role": role,
         "evaluation_id": evaluation_id,
     }
     if res.data:
         # Keep the application row as the tracker source of truth; only refresh the evaluation link.
-        supabase.table("applications").update(data).eq("id", res.data[0]["id"]).execute()
+        supabase.table("job_applications").update(data).eq("id", res.data[0]["id"]).execute()
     else:
         # Create a tracker row from evaluation data.
         data["status"] = initial_status or "Evaluated"
@@ -245,7 +245,7 @@ def _upsert_linked_application(
         data["timeline"] = [
             {"date": today, "title": "Job Evaluated", "description": "Successfully ran AI score alignment check.", "custom": False}
         ]
-        supabase.table("applications").insert(data).execute()
+        supabase.table("job_applications").insert(data).execute()
 
 
 def sync_evaluations_to_applications(user_id: str) -> None:
@@ -268,7 +268,7 @@ def sync_evaluations_to_applications(user_id: str) -> None:
 
 def get_all_applications() -> list[dict]:
     """Fetch all applications globally (for employer view)."""
-    res = supabase.table("applications").select("*").order("date", desc=True).execute()
+    res = supabase.table("job_applications").select("*").order("date", desc=True).execute()
     if not res.data:
         return []
 
@@ -294,7 +294,7 @@ def get_all_applications() -> list[dict]:
         out.append({
             "evaluation_id": eval_id or 0,
             "id": app["id"],
-            "user_id": app.get("user_id") or "",
+            "user_id": app.get("candidate_user_id") or "",
             "date": app.get("date") or "",
             "company": app["company"],
             "role": app["role"],
@@ -317,9 +317,9 @@ def list_applications(user_id: str) -> list[dict]:
     try:
         sync_evaluations_to_applications(user_id)
 
-        res = supabase.table("applications")\
+        res = supabase.table("job_applications")\
             .select("*")\
-            .eq("user_id", user_id)\
+            .eq("candidate_user_id", user_id)\
             .execute()
 
         # Fetch evaluations to map score and scores
@@ -375,7 +375,7 @@ def create_manual_application(user_id: str, company: str, role: str, status: str
         {"date": today, "title": "Application Created", "description": f"Manually added to your tracker as '{status}'.", "custom": False}
     ]
     data = {
-        "user_id": user_id,
+        "candidate_user_id": user_id,
         "company": company,
         "role": role,
         "status": status,
@@ -385,7 +385,7 @@ def create_manual_application(user_id: str, company: str, role: str, status: str
         "interviews": [],
         "timeline": default_timeline,
     }
-    res = supabase.table("applications").insert(data).execute()
+    res = supabase.table("job_applications").insert(data).execute()
     if res.data:
         app = res.data[0]
         return {
@@ -423,20 +423,20 @@ def update_application_details(user_id: str, application_id: str, status: str, i
         "timeline": timeline
     }
     try:
-        res = supabase.table("applications")\
+        res = supabase.table("job_applications")\
             .update(data)\
             .eq("id", application_id)\
-            .eq("user_id", user_id)\
+            .eq("candidate_user_id", user_id)\
             .execute()
         return len(res.data) > 0
     except Exception as e:
         print(f"Error updating application {application_id}:", e)
         # Fallback: try a minimal update (status only) in case some columns don't exist yet
         try:
-            res = supabase.table("applications")\
+            res = supabase.table("job_applications")\
                 .update({"status": status, "notes": notes})\
                 .eq("id", application_id)\
-                .eq("user_id", user_id)\
+                .eq("candidate_user_id", user_id)\
                 .execute()
             return len(res.data) > 0
         except Exception as e2:
@@ -445,10 +445,10 @@ def update_application_details(user_id: str, application_id: str, status: str, i
 
 
 def delete_application(user_id: str, application_id: str) -> bool:
-    res = supabase.table("applications")\
+    res = supabase.table("job_applications")\
         .delete()\
         .eq("id", application_id)\
-        .eq("user_id", user_id)\
+        .eq("candidate_user_id", user_id)\
         .execute()
     return len(res.data) > 0
 
@@ -624,7 +624,7 @@ def post_pipeline_update(
         # If we mapped a status and we have the application_id, auto-update the application!
         if mapped_status and application_id and candidate_user_id:
             # We need to fetch the existing timeline to append to it
-            app_res = supabase.table("applications").select("timeline").eq("id", application_id).execute()
+            app_res = supabase.table("job_applications").select("timeline").eq("id", application_id).execute()
             if app_res.data:
                 old_timeline = app_res.data[0].get("timeline") or []
                 today = datetime.utcnow().strftime("%Y-%m-%d")
@@ -635,7 +635,7 @@ def post_pipeline_update(
                     "custom": False,
                 }]
                 
-                supabase.table("applications").update({
+                supabase.table("job_applications").update({
                     "status": mapped_status,
                     "timeline": new_timeline
                 }).eq("id", application_id).execute()
