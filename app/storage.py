@@ -1,5 +1,9 @@
 """Supabase persistence — multi-user replacement for SQLite database."""
 
+from typing import Dict
+from typing import Any
+from typing import List
+from typing import Optional
 import json
 from datetime import date
 from supabase import create_client, Client
@@ -640,3 +644,64 @@ def post_pipeline_update(
     except Exception as e:
         print("Error posting pipeline update:", e)
     return None
+
+def get_templates(role_filter: Optional[str] = None) -> List[Dict[str, Any]]:
+    """
+    Fetches templates from Supabase.
+    Applies the custom role-matching criteria efficiently via PostgREST filters.
+    """
+    query = supabase.table("templates").select("*")
+    
+    if role_filter == "candidate":
+        # Candidates see 'candidate' and 'shared' templates
+        response = query.in_("role", ["candidate", "shared"]).order("category").execute()
+    elif role_filter == "employer":
+        # Employers see 'employer' and 'shared' templates
+        response = query.in_("role", ["employer", "shared"]).order("category").execute()
+    elif role_filter:
+        # Fallback fallback for explicit target matching (e.g., 'shared')
+        response = query.eq("role", role_filter).order("category").execute()
+    else:
+        # No filter provided; return all entries
+        response = query.order("category").execute()
+        
+    return response.data
+
+def get_template_by_id(template_id: str) -> Optional[Dict[str, Any]]:
+    """Fetches a single template from Supabase using its unique text ID."""
+    response = supabase.table("templates").select("*").eq("id", template_id).execute()
+    
+    # Return the record dictionary if found, otherwise None
+    return response.data[0] if response.data else None
+
+def get_user_favorite_ids(user_id: str) -> List[str]:
+    """Retrieves all template IDs favorited by a given user."""
+    res = supabase.table("user_favorite_templates").select("template_id").eq("user_id", user_id).execute()
+    return [row["template_id"] for row in (res.data or [])]
+
+def add_user_favorite(user_id: str, template_id: str) -> None:
+    """Saves a template to a user's favorite index."""
+    supabase.table("user_favorite_templates").upsert({
+        "user_id": user_id,
+        "template_id": template_id
+    }).execute()
+
+def remove_user_favorite(user_id: str, template_id: str) -> None:
+    """Removes a template from a user's favorite index."""
+    supabase.table("user_favorite_templates").delete().eq("user_id", user_id).eq("template_id", template_id).execute()
+
+def increment_template_metrics(template_id: str) -> int:
+    """Increments the database utilization counter for popularity analytics."""
+    res = supabase.table("template_popularity").select("use_count").eq("template_id", template_id).execute()
+    if res.data:
+        new_count = res.data[0]["use_count"] + 1
+        supabase.table("template_popularity").update({"use_count": new_count}).eq("template_id", template_id).execute()
+    else:
+        new_count = 1
+        supabase.table("template_popularity").insert({"template_id": template_id, "use_count": 1}).execute()
+    return new_count
+
+def get_top_popular_ids(limit: int = 5) -> List[str]:
+    """Retrieves the top template IDs sorted by maximum usage metrics."""
+    res = supabase.table("template_popularity").select("template_id").order("use_count", desc=True).limit(limit).execute()
+    return [row["template_id"] for row in (res.data or [])]
