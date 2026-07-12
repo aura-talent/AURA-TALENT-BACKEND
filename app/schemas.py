@@ -488,3 +488,45 @@ class PipelineUpdateIn(BaseModel):
     stage: str
     stage_index: int
     note: str = ""
+
+
+# ── Communication Templates ─────────────────────────────────────────
+
+class TemplateOut(BaseModel):
+    id: str
+    category: str
+    purpose: str
+    recommended_case: str
+    tone_options: list[str]
+    placeholders: list[str]
+    subject_template: str
+    body_template: str
+    role: str
+
+class GenerateTemplateIn(BaseModel):
+    prompt: str
+    template_id: Optional[str] = None
+    role: str
+    tone: Optional[str] = None
+    length: Optional[str] = None
+    language: Optional[str] = "English"
+    placeholders: Optional[dict[str, str]] = None
+
+class GenerateTemplateOut(BaseModel):
+    subject: str
+    body: str
+
+class PopulatePlaceholdersIn(BaseModel):
+    placeholders: list[str]
+    role: str
+    candidate_user_id: Optional[str] = None
+    job_id: Optional[str] = None
+
+class PopulatePlaceholdersOut(BaseModel):
+    populated: dict[str, str]
+
+class FavoriteIn(BaseModel):
+    user_id: str
+    template_id: str
+    is_favorite: bool
+
