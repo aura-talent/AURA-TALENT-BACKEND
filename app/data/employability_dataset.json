@@ -1,0 +1,1788 @@
+{
+  "updated": "2026-07",
+  "sources": [
+    {
+      "id": "moe-nus-ges2025",
+      "label": "MOE Singapore — NUS GES 2025: Employment Rates and Salaries by Bachelor Degree",
+      "url": "https://www.moe.gov.sg/media/files/post-secondary/ges-2025/Web%20Publication%20NUS%20GES%202025.pdf"
+    },
+    {
+      "id": "moe-ntu-ges2025",
+      "label": "MOE Singapore — NTU GES 2025: Employment Rate and Salaries by Bachelor Degree",
+      "url": "https://www.moe.gov.sg/media/files/post-secondary/ges-2025/Web%20Publication%20NTU%20GES%202025.pdf"
+    },
+    {
+      "id": "smu-ges2025",
+      "label": "SMU / MOE Singapore — SMU GES 2025: Employment Rates and Salaries by Bachelor Degree",
+      "url": "https://news.smu.edu.sg/sites/news.smu.edu.sg/files/smu/news_room/Annex%20B_Web%20Publication%20SMU%20GES%202025.pdf"
+    },
+    {
+      "id": "moe-sit-ges2025",
+      "label": "MOE Singapore — SIT GES 2025: Employment Rates and Salaries by Bachelor Degree",
+      "url": "https://www.moe.gov.sg/media/files/post-secondary/ges-2025/Web%20Publication%20SIT%20GES%202025.pdf"
+    },
+    {
+      "id": "moe-sutd-ges2025",
+      "label": "MOE Singapore — SUTD GES 2025: Employment Rates and Salaries by Bachelor Degree",
+      "url": "https://www.moe.gov.sg/media/files/post-secondary/ges-2025/Web%20Publication%20SUTD%20GES%202025.pdf"
+    },
+    {
+      "id": "moe-suss-ges2025",
+      "label": "MOE Singapore — SUSS GES 2025: Employment Rates and Salaries by Bachelor Degree",
+      "url": "https://www.moe.gov.sg/media/files/post-secondary/ges-2025/Web%20Publication%20SUSS%20GES%202025.pdf"
+    },
+    {
+      "id": "mohe-skpg2024",
+      "label": "MOHE Malaysia — Laporan SKPG 2024 (Graduate Tracer Study): 'Kadar Bekerja Graduan' Charts 3.1e (public) & 3.1f (private ≥90%), national rate p.14",
+      "url": "https://great.mohe.gov.my/Admin/UploadPenerbitan/LaporanSKPG2024c.pdf"
+    },
+    {
+      "id": "hays-asia-2025",
+      "label": "Hays — 2025 Asia Salary Guide (Technology, Malaysia; annual figures converted to monthly ÷12)",
+      "url": "https://static.ie.edu/CMC/Career%20Education/Career%20Website/MARKET%20OVERVIEW/2025%20Hays%20Asia%20Salary%20Guide.pdf"
+    },
+    {
+      "id": "jobstreet-my-live",
+      "label": "JobStreet Malaysia — Explore Salaries live per-role pages (accessed July 2026)",
+      "url": "https://my.jobstreet.com/career-advice/role/software-engineer/salary"
+    }
+  ],
+  "universities": [
+    {
+      "id": "nus",
+      "name": "National University of Singapore",
+      "country": "SG",
+      "employment_rate_pct": null,
+      "rate_basis": "Per-degree data below — GES 2025 'Secured Employment' within ~6 months of final exams",
+      "source_ids": [
+        "moe-nus-ges2025"
+      ],
+      "survey_year": 2025,
+      "respondents": null,
+      "degrees": [
+        {
+          "field": "Computer Science",
+          "employment_rate_pct": 90.9,
+          "salary": {
+            "p25": 5300,
+            "p50": 6400,
+            "p75": 7500,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-nus-ges2025"
+          ]
+        },
+        {
+          "field": "Information Security",
+          "employment_rate_pct": 88.0,
+          "salary": {
+            "p25": 5150,
+            "p50": 6000,
+            "p75": 6800,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-nus-ges2025"
+          ]
+        },
+        {
+          "field": "Information Systems",
+          "employment_rate_pct": 96.8,
+          "salary": {
+            "p25": 5000,
+            "p50": 6000,
+            "p75": 7000,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-nus-ges2025"
+          ]
+        },
+        {
+          "field": "Business Analytics",
+          "employment_rate_pct": 94.0,
+          "salary": {
+            "p25": 5000,
+            "p50": 5700,
+            "p75": 7083,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-nus-ges2025"
+          ]
+        },
+        {
+          "field": "Data Science and Analytics",
+          "employment_rate_pct": 82.4,
+          "salary": {
+            "p25": 4450,
+            "p50": 5000,
+            "p75": 6000,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-nus-ges2025"
+          ]
+        },
+        {
+          "field": "Business Administration",
+          "employment_rate_pct": 95.0,
+          "salary": {
+            "p25": 4000,
+            "p50": 6000,
+            "p75": 9000,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-nus-ges2025"
+          ]
+        },
+        {
+          "field": "Business Administration (Accountancy) (Hons)",
+          "employment_rate_pct": 96.2,
+          "salary": {
+            "p25": 4350,
+            "p50": 4375,
+            "p75": 4999,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-nus-ges2025"
+          ]
+        },
+        {
+          "field": "Electrical Engineering",
+          "employment_rate_pct": 88.8,
+          "salary": {
+            "p25": 4500,
+            "p50": 4900,
+            "p75": 5400,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-nus-ges2025"
+          ]
+        },
+        {
+          "field": "Mechanical Engineering",
+          "employment_rate_pct": 87.3,
+          "salary": {
+            "p25": 4495,
+            "p50": 5000,
+            "p75": 5591,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-nus-ges2025"
+          ]
+        },
+        {
+          "field": "Computer Engineering",
+          "employment_rate_pct": 89.2,
+          "salary": {
+            "p25": 5230,
+            "p50": 5600,
+            "p75": 6500,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-nus-ges2025"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ntu",
+      "name": "Nanyang Technological University",
+      "country": "SG",
+      "employment_rate_pct": null,
+      "rate_basis": "Per-degree data below — GES 2025 'Secured Employment' within ~6 months of final exams",
+      "source_ids": [
+        "moe-ntu-ges2025"
+      ],
+      "survey_year": 2025,
+      "respondents": null,
+      "degrees": [
+        {
+          "field": "Computer Science",
+          "employment_rate_pct": 89.5,
+          "salary": {
+            "p25": 4900,
+            "p50": 5500,
+            "p75": 6565,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-ntu-ges2025"
+          ]
+        },
+        {
+          "field": "Computer Engineering",
+          "employment_rate_pct": 84.6,
+          "salary": {
+            "p25": 4900,
+            "p50": 5150,
+            "p75": 5850,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-ntu-ges2025"
+          ]
+        },
+        {
+          "field": "Data Science and Artificial Intelligence",
+          "employment_rate_pct": 81.0,
+          "salary": {
+            "p25": 4850,
+            "p50": 5250,
+            "p75": 6130,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-ntu-ges2025"
+          ]
+        },
+        {
+          "field": "Double Degree: Business and Computer Engineering/Computing",
+          "employment_rate_pct": 88.9,
+          "salary": {
+            "p25": 5520,
+            "p50": 6950,
+            "p75": 8000,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-ntu-ges2025"
+          ]
+        },
+        {
+          "field": "Electrical and Electronic Engineering",
+          "employment_rate_pct": 86.4,
+          "salary": {
+            "p25": 4250,
+            "p50": 4800,
+            "p75": 5200,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-ntu-ges2025"
+          ]
+        },
+        {
+          "field": "Mechanical Engineering",
+          "employment_rate_pct": 86.7,
+          "salary": {
+            "p25": 4090,
+            "p50": 4500,
+            "p75": 5000,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-ntu-ges2025"
+          ]
+        },
+        {
+          "field": "Accountancy",
+          "employment_rate_pct": 96.7,
+          "salary": {
+            "p25": 4300,
+            "p50": 4350,
+            "p75": 4550,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-ntu-ges2025"
+          ]
+        },
+        {
+          "field": "Business",
+          "employment_rate_pct": 90.4,
+          "salary": {
+            "p25": 4000,
+            "p50": 4500,
+            "p75": 5300,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-ntu-ges2025"
+          ]
+        },
+        {
+          "field": "Economics",
+          "employment_rate_pct": 92.3,
+          "salary": {
+            "p25": 4100,
+            "p50": 4621,
+            "p75": 5200,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-ntu-ges2025"
+          ]
+        },
+        {
+          "field": "Double Degree: Engineering/Computer Science and Economics",
+          "employment_rate_pct": 93.8,
+          "salary": {
+            "p25": 5000,
+            "p50": 5500,
+            "p75": 7500,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-ntu-ges2025"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "smu",
+      "name": "Singapore Management University",
+      "country": "SG",
+      "employment_rate_pct": null,
+      "rate_basis": "Per-degree data below — GES 2025 'Secured Employment' within ~6 months of final exams",
+      "source_ids": [
+        "smu-ges2025"
+      ],
+      "survey_year": 2025,
+      "respondents": null,
+      "degrees": [
+        {
+          "field": "Computer Science",
+          "employment_rate_pct": 88.3,
+          "salary": {
+            "p25": 5000,
+            "p50": 6000,
+            "p75": 7083,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "smu-ges2025"
+          ]
+        },
+        {
+          "field": "Information Systems",
+          "employment_rate_pct": 94.3,
+          "salary": {
+            "p25": 4800,
+            "p50": 5400,
+            "p75": 6028,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "smu-ges2025"
+          ]
+        },
+        {
+          "field": "Computing & Law",
+          "employment_rate_pct": 81.0,
+          "salary": {
+            "p25": 4300,
+            "p50": 5000,
+            "p75": 5500,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "smu-ges2025"
+          ]
+        },
+        {
+          "field": "Accountancy",
+          "employment_rate_pct": 97.0,
+          "salary": {
+            "p25": 4300,
+            "p50": 4350,
+            "p75": 5000,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "smu-ges2025"
+          ]
+        },
+        {
+          "field": "Business Management",
+          "employment_rate_pct": 88.9,
+          "salary": {
+            "p25": 4000,
+            "p50": 4600,
+            "p75": 5525,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "smu-ges2025"
+          ]
+        },
+        {
+          "field": "Economics",
+          "employment_rate_pct": 89.6,
+          "salary": {
+            "p25": 4100,
+            "p50": 4500,
+            "p75": 5200,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "smu-ges2025"
+          ]
+        },
+        {
+          "field": "Social Sciences",
+          "employment_rate_pct": 91.5,
+          "salary": {
+            "p25": 3600,
+            "p50": 4000,
+            "p75": 4700,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "smu-ges2025"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sit",
+      "name": "Singapore Institute of Technology",
+      "country": "SG",
+      "employment_rate_pct": null,
+      "rate_basis": "Per-degree data below — GES 2025 'Secured Employment' within ~6 months of final exams",
+      "source_ids": [
+        "moe-sit-ges2025"
+      ],
+      "survey_year": 2025,
+      "respondents": null,
+      "degrees": [
+        {
+          "field": "ICT (Software Engineering)",
+          "employment_rate_pct": 86.8,
+          "salary": {
+            "p25": 4800,
+            "p50": 5000,
+            "p75": 5500,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-sit-ges2025"
+          ]
+        },
+        {
+          "field": "ICT (Information Security)",
+          "employment_rate_pct": 84.2,
+          "salary": {
+            "p25": 4500,
+            "p50": 5000,
+            "p75": 5600,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-sit-ges2025"
+          ]
+        },
+        {
+          "field": "Computer Engineering",
+          "employment_rate_pct": 79.2,
+          "salary": {
+            "p25": 4000,
+            "p50": 4534,
+            "p75": 5000,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-sit-ges2025"
+          ]
+        },
+        {
+          "field": "Applied Artificial Intelligence",
+          "employment_rate_pct": 65.7,
+          "salary": {
+            "p25": 3850,
+            "p50": 4550,
+            "p75": 5320,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-sit-ges2025"
+          ]
+        },
+        {
+          "field": "Computing Science (SIT–University of Glasgow)",
+          "employment_rate_pct": 80.2,
+          "salary": {
+            "p25": 4550,
+            "p50": 5000,
+            "p75": 5700,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-sit-ges2025"
+          ]
+        },
+        {
+          "field": "Digital Supply Chain",
+          "employment_rate_pct": 90.9,
+          "salary": {
+            "p25": 3800,
+            "p50": 4080,
+            "p75": 4200,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-sit-ges2025"
+          ]
+        },
+        {
+          "field": "Accountancy (Hons)",
+          "employment_rate_pct": 97.6,
+          "salary": {
+            "p25": 4000,
+            "p50": 4350,
+            "p75": 4550,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-sit-ges2025"
+          ]
+        },
+        {
+          "field": "Mechatronics Systems (SIT–DigiPen)",
+          "employment_rate_pct": 75.8,
+          "salary": {
+            "p25": 4000,
+            "p50": 4600,
+            "p75": 5000,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-sit-ges2025"
+          ]
+        },
+        {
+          "field": "Mechanical Engineering (SIT–University of Glasgow)",
+          "employment_rate_pct": 87.5,
+          "salary": {
+            "p25": 3890,
+            "p50": 4200,
+            "p75": 4675,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-sit-ges2025"
+          ]
+        },
+        {
+          "field": "Electronics and Data Engineering (SIT–TU Munich)",
+          "employment_rate_pct": 90.0,
+          "salary": {
+            "p25": 4250,
+            "p50": 4700,
+            "p75": 5100,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-sit-ges2025"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sutd",
+      "name": "Singapore University of Technology and Design",
+      "country": "SG",
+      "employment_rate_pct": null,
+      "rate_basis": "Per-degree data below — GES 2025 'Secured Employment' within ~6 months of final exams",
+      "source_ids": [
+        "moe-sutd-ges2025"
+      ],
+      "survey_year": 2025,
+      "respondents": null,
+      "degrees": [
+        {
+          "field": "Computer Science and Design",
+          "employment_rate_pct": 91.7,
+          "salary": {
+            "p25": 4800,
+            "p50": 5000,
+            "p75": 5825,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-sutd-ges2025"
+          ]
+        },
+        {
+          "field": "Engineering Product Development",
+          "employment_rate_pct": 84.2,
+          "salary": {
+            "p25": 4500,
+            "p50": 4965,
+            "p75": 5400,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-sutd-ges2025"
+          ]
+        },
+        {
+          "field": "Engineering Systems and Design",
+          "employment_rate_pct": 93.0,
+          "salary": {
+            "p25": 4100,
+            "p50": 4900,
+            "p75": 5200,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-sutd-ges2025"
+          ]
+        },
+        {
+          "field": "Design and Artificial Intelligence",
+          "employment_rate_pct": 81.8,
+          "salary": {
+            "p25": 4096,
+            "p50": 4925,
+            "p75": 5393,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-sutd-ges2025"
+          ]
+        },
+        {
+          "field": "Architecture and Sustainable Design",
+          "employment_rate_pct": 97.1,
+          "salary": {
+            "p25": 4000,
+            "p50": 4490,
+            "p75": 4800,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-sutd-ges2025"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "suss",
+      "name": "Singapore University of Social Sciences",
+      "country": "SG",
+      "employment_rate_pct": null,
+      "rate_basis": "Per-degree data below — GES 2025 'Secured Employment' within ~6 months of final exams",
+      "source_ids": [
+        "moe-suss-ges2025"
+      ],
+      "survey_year": 2025,
+      "respondents": null,
+      "degrees": [
+        {
+          "field": "Business Analytics",
+          "employment_rate_pct": 83.3,
+          "salary": {
+            "p25": 4200,
+            "p50": 4800,
+            "p75": 5439,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-suss-ges2025"
+          ]
+        },
+        {
+          "field": "Accountancy",
+          "employment_rate_pct": 93.8,
+          "salary": {
+            "p25": 4300,
+            "p50": 4350,
+            "p75": 4500,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-suss-ges2025"
+          ]
+        },
+        {
+          "field": "Finance",
+          "employment_rate_pct": 89.2,
+          "salary": {
+            "p25": 4145,
+            "p50": 4400,
+            "p75": 5134,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-suss-ges2025"
+          ]
+        },
+        {
+          "field": "Marketing",
+          "employment_rate_pct": 84.9,
+          "salary": {
+            "p25": 3500,
+            "p50": 3715,
+            "p75": 4200,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-suss-ges2025"
+          ]
+        },
+        {
+          "field": "Supply Chain Management",
+          "employment_rate_pct": 82.4,
+          "salary": {
+            "p25": 3600,
+            "p50": 4000,
+            "p75": 4325,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-suss-ges2025"
+          ]
+        },
+        {
+          "field": "Human Resource Management",
+          "employment_rate_pct": 90.1,
+          "salary": {
+            "p25": 3700,
+            "p50": 4000,
+            "p75": 4300,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-suss-ges2025"
+          ]
+        },
+        {
+          "field": "Public Safety and Security",
+          "employment_rate_pct": 91.8,
+          "salary": {
+            "p25": 4185,
+            "p50": 5000,
+            "p75": 5800,
+            "currency": "SGD",
+            "period": "month"
+          },
+          "source_ids": [
+            "moe-suss-ges2025"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "apu",
+      "name": "Asia Pacific University of Technology & Innovation (APU)",
+      "country": "MY",
+      "employment_rate_pct": 100.0,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1f, n=1,450 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 1450,
+      "degrees": []
+    },
+    {
+      "id": "sunway",
+      "name": "Sunway University",
+      "country": "MY",
+      "employment_rate_pct": 100.0,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1f, n=1,623 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 1623,
+      "degrees": []
+    },
+    {
+      "id": "msu",
+      "name": "Management & Science University (MSU)",
+      "country": "MY",
+      "employment_rate_pct": 99.9,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1f, n=3,424 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 3424,
+      "degrees": []
+    },
+    {
+      "id": "taylors",
+      "name": "Taylor's University",
+      "country": "MY",
+      "employment_rate_pct": 99.5,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1f, n=1,522 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 1522,
+      "degrees": []
+    },
+    {
+      "id": "ucsi",
+      "name": "UCSI University (Kuala Lumpur)",
+      "country": "MY",
+      "employment_rate_pct": 100.0,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1f, n=718 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 718,
+      "degrees": []
+    },
+    {
+      "id": "unikl-bis",
+      "name": "UniKL Business School",
+      "country": "MY",
+      "employment_rate_pct": 100.0,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1f, n=869 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 869,
+      "degrees": []
+    },
+    {
+      "id": "unikl-miit",
+      "name": "UniKL Malaysian Institute of Information Technology",
+      "country": "MY",
+      "employment_rate_pct": 100.0,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1f, n=677 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 677,
+      "degrees": []
+    },
+    {
+      "id": "utar-sg-long",
+      "name": "Universiti Tunku Abdul Rahman (Sungai Long)",
+      "country": "MY",
+      "employment_rate_pct": 98.4,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1f, n=1,571 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 1571,
+      "degrees": []
+    },
+    {
+      "id": "mmu",
+      "name": "Multimedia University (MMU)",
+      "country": "MY",
+      "employment_rate_pct": 98.0,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1f, n=1,619 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 1619,
+      "degrees": []
+    },
+    {
+      "id": "utar-kampar",
+      "name": "Universiti Tunku Abdul Rahman (Kampar)",
+      "country": "MY",
+      "employment_rate_pct": 97.3,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1f, n=1,909 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 1909,
+      "degrees": []
+    },
+    {
+      "id": "unikl-rcmp",
+      "name": "UniKL Royal College of Medicine Perak",
+      "country": "MY",
+      "employment_rate_pct": 96.3,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1f, n=621 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 621,
+      "degrees": []
+    },
+    {
+      "id": "wou",
+      "name": "Wawasan Open University (WOU)",
+      "country": "MY",
+      "employment_rate_pct": 95.4,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1f, n=681 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 681,
+      "degrees": []
+    },
+    {
+      "id": "unikl-mitec",
+      "name": "UniKL Malaysian Institute of Industrial Technology",
+      "country": "MY",
+      "employment_rate_pct": 95.1,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1f, n=405 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 405,
+      "degrees": []
+    },
+    {
+      "id": "uptm",
+      "name": "Universiti Poly-Tech Malaysia (UPTM)",
+      "country": "MY",
+      "employment_rate_pct": 93.4,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1f, n=976 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 976,
+      "degrees": []
+    },
+    {
+      "id": "tarumt-penang",
+      "name": "TAR UMT (Penang Campus)",
+      "country": "MY",
+      "employment_rate_pct": 92.9,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1f, n=636 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 636,
+      "degrees": []
+    },
+    {
+      "id": "city-u",
+      "name": "City University Malaysia",
+      "country": "MY",
+      "employment_rate_pct": 92.1,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1f, n=568 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 568,
+      "degrees": []
+    },
+    {
+      "id": "inti",
+      "name": "INTI International University",
+      "country": "MY",
+      "employment_rate_pct": 91.8,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1f, n=892 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 892,
+      "degrees": []
+    },
+    {
+      "id": "oum",
+      "name": "Open University Malaysia (OUM)",
+      "country": "MY",
+      "employment_rate_pct": 91.3,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1f, n=5,535 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 5535,
+      "degrees": []
+    },
+    {
+      "id": "uoc",
+      "name": "University of Cyberjaya",
+      "country": "MY",
+      "employment_rate_pct": 94.1,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1f, n=478 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 478,
+      "degrees": []
+    },
+    {
+      "id": "monash-malaysia",
+      "name": "Monash University Malaysia",
+      "country": "MY",
+      "employment_rate_pct": null,
+      "rate_basis": "Not in MOHE's SKPG 2024 Chart 3.1f, which only lists private universities above 90.0% employment — Monash either fell below that threshold or was excluded by the survey's criteria; no verified figure exists",
+      "source_ids": [],
+      "survey_year": null,
+      "respondents": null,
+      "degrees": []
+    },
+    {
+      "id": "utm",
+      "name": "Universiti Teknologi Malaysia (UTM)",
+      "country": "MY",
+      "employment_rate_pct": 100.0,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1e, n=4,357 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 4357,
+      "degrees": []
+    },
+    {
+      "id": "upm",
+      "name": "Universiti Putra Malaysia (UPM)",
+      "country": "MY",
+      "employment_rate_pct": 99.7,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1e, n=3,869 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 3869,
+      "degrees": []
+    },
+    {
+      "id": "umpsa",
+      "name": "Universiti Malaysia Pahang Al-Sultan Abdullah (UMPSA)",
+      "country": "MY",
+      "employment_rate_pct": 99.1,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1e, n=4,103 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 4103,
+      "degrees": []
+    },
+    {
+      "id": "upnm",
+      "name": "Universiti Pertahanan Nasional Malaysia (UPNM)",
+      "country": "MY",
+      "employment_rate_pct": 99.1,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1e, n=1,024 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 1024,
+      "degrees": []
+    },
+    {
+      "id": "unimap",
+      "name": "Universiti Malaysia Perlis (UniMAP)",
+      "country": "MY",
+      "employment_rate_pct": 98.8,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1e, n=2,450 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 2450,
+      "degrees": []
+    },
+    {
+      "id": "utem",
+      "name": "Universiti Teknikal Malaysia Melaka (UTeM)",
+      "country": "MY",
+      "employment_rate_pct": 97.9,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1e, n=2,458 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 2458,
+      "degrees": []
+    },
+    {
+      "id": "unisza",
+      "name": "Universiti Sultan Zainal Abidin (UniSZA)",
+      "country": "MY",
+      "employment_rate_pct": 97.6,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1e, n=2,149 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 2149,
+      "degrees": []
+    },
+    {
+      "id": "usim",
+      "name": "Universiti Sains Islam Malaysia (USIM)",
+      "country": "MY",
+      "employment_rate_pct": 97.6,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1e, n=2,411 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 2411,
+      "degrees": []
+    },
+    {
+      "id": "upsi",
+      "name": "Universiti Pendidikan Sultan Idris (UPSI)",
+      "country": "MY",
+      "employment_rate_pct": 97.4,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1e, n=5,526 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 5526,
+      "degrees": []
+    },
+    {
+      "id": "umk",
+      "name": "Universiti Malaysia Kelantan (UMK)",
+      "country": "MY",
+      "employment_rate_pct": 97.2,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1e, n=2,627 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 2627,
+      "degrees": []
+    },
+    {
+      "id": "uum",
+      "name": "Universiti Utara Malaysia (UUM)",
+      "country": "MY",
+      "employment_rate_pct": 97.1,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1e, n=5,599 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 5599,
+      "degrees": []
+    },
+    {
+      "id": "uthm",
+      "name": "Universiti Tun Hussein Onn Malaysia (UTHM)",
+      "country": "MY",
+      "employment_rate_pct": 96.5,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1e, n=3,602 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 3602,
+      "degrees": []
+    },
+    {
+      "id": "ukm",
+      "name": "Universiti Kebangsaan Malaysia (UKM)",
+      "country": "MY",
+      "employment_rate_pct": 96.3,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1e, n=8,303 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 8303,
+      "degrees": []
+    },
+    {
+      "id": "universiti-malaya",
+      "name": "Universiti Malaya (UM)",
+      "country": "MY",
+      "employment_rate_pct": 94.4,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1e, n=5,920 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 5920,
+      "degrees": []
+    },
+    {
+      "id": "umt",
+      "name": "Universiti Malaysia Terengganu (UMT)",
+      "country": "MY",
+      "employment_rate_pct": 94.0,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1e, n=2,360 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 2360,
+      "degrees": []
+    },
+    {
+      "id": "ums",
+      "name": "Universiti Malaysia Sabah (UMS)",
+      "country": "MY",
+      "employment_rate_pct": 93.9,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1e, n=3,301 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 3301,
+      "degrees": []
+    },
+    {
+      "id": "usm",
+      "name": "Universiti Sains Malaysia (USM)",
+      "country": "MY",
+      "employment_rate_pct": 93.3,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1e, n=5,179 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 5179,
+      "degrees": []
+    },
+    {
+      "id": "uitm",
+      "name": "Universiti Teknologi MARA (UiTM)",
+      "country": "MY",
+      "employment_rate_pct": 92.1,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1e, n=33,272 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 33272,
+      "degrees": []
+    },
+    {
+      "id": "unimas",
+      "name": "Universiti Malaysia Sarawak (UNIMAS)",
+      "country": "MY",
+      "employment_rate_pct": 91.5,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1e, n=3,006 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 3006,
+      "degrees": []
+    },
+    {
+      "id": "uiam",
+      "name": "Universiti Islam Antarabangsa Malaysia (UIAM/IIUM)",
+      "country": "MY",
+      "employment_rate_pct": 89.0,
+      "rate_basis": "'Kadar Bekerja Graduan' (employed among labour-force graduates) — MOHE SKPG 2024, Chart 3.1e, n=3,330 in labour force",
+      "source_ids": [
+        "mohe-skpg2024"
+      ],
+      "survey_year": 2024,
+      "respondents": 3330,
+      "degrees": []
+    }
+  ],
+  "roles": [
+    {
+      "id": "software-engineer",
+      "title": "Software Engineer",
+      "salary": {
+        "MY": {
+          "typical": {
+            "lo": 4300,
+            "hi": 6300
+          },
+          "junior": null,
+          "senior": null,
+          "currency": "MYR",
+          "period": "month",
+          "source_ids": [
+            "hays-asia-2025",
+            "jobstreet-my-live"
+          ],
+          "basis": "JobStreet live: RM4,300–6,300/mo blended. No verified junior/senior anchors — Randstad 2025's tech section has no salary tables and Hays has no generic 'Software Engineer' line for Malaysia.",
+          "typical_basis": "JobStreet Malaysia live market range (blended, all seniorities)",
+          "anchor_basis": "junior/senior anchors from Hays 2025 annual figures ÷12"
+        }
+      }
+    },
+    {
+      "id": "backend-engineer",
+      "title": "Backend Engineer",
+      "salary": {
+        "MY": {
+          "typical": {
+            "lo": 5250,
+            "hi": 7750
+          },
+          "junior": 6000,
+          "senior": 20000,
+          "currency": "MYR",
+          "period": "month",
+          "source_ids": [
+            "hays-asia-2025",
+            "jobstreet-my-live"
+          ],
+          "basis": "JobStreet live: RM5,250–7,750/mo; Hays 2025 Back-End Developer RM72k–240k annual (RM6,000–20,000/mo).",
+          "typical_basis": "JobStreet Malaysia live market range (blended, all seniorities)",
+          "anchor_basis": "junior/senior anchors from Hays 2025 annual figures ÷12"
+        }
+      }
+    },
+    {
+      "id": "frontend-developer",
+      "title": "Frontend Developer",
+      "salary": {
+        "MY": {
+          "typical": {
+            "lo": 5050,
+            "hi": 7550
+          },
+          "junior": 7000,
+          "senior": 15000,
+          "currency": "MYR",
+          "period": "month",
+          "source_ids": [
+            "hays-asia-2025",
+            "jobstreet-my-live"
+          ],
+          "basis": "JobStreet live: RM5,050–7,550/mo; Hays 2025 Front-End Developer RM84k–180k annual (RM7,000–15,000/mo).",
+          "typical_basis": "JobStreet Malaysia live market range (blended, all seniorities)",
+          "anchor_basis": "junior/senior anchors from Hays 2025 annual figures ÷12"
+        }
+      }
+    },
+    {
+      "id": "full-stack-developer",
+      "title": "Full-Stack Developer",
+      "salary": {
+        "MY": {
+          "typical": {
+            "lo": 5500,
+            "hi": 7500
+          },
+          "junior": 7000,
+          "senior": 20000,
+          "currency": "MYR",
+          "period": "month",
+          "source_ids": [
+            "hays-asia-2025",
+            "jobstreet-my-live"
+          ],
+          "basis": "JobStreet live: RM5,500–7,500/mo; Hays 2025 Full-Stack Developer RM84k–240k annual (RM7,000–20,000/mo).",
+          "typical_basis": "JobStreet Malaysia live market range (blended, all seniorities)",
+          "anchor_basis": "junior/senior anchors from Hays 2025 annual figures ÷12"
+        }
+      }
+    },
+    {
+      "id": "mobile-developer",
+      "title": "Mobile Developer",
+      "salary": {
+        "MY": {
+          "typical": {
+            "lo": 3750,
+            "hi": 6250
+          },
+          "junior": 7000,
+          "senior": 18333,
+          "currency": "MYR",
+          "period": "month",
+          "source_ids": [
+            "hays-asia-2025",
+            "jobstreet-my-live"
+          ],
+          "basis": "JobStreet live: RM3,750–6,250/mo; Hays 2025 Mobile Developer RM84k–220k annual (RM7,000–18,333/mo).",
+          "typical_basis": "JobStreet Malaysia live market range (blended, all seniorities)",
+          "anchor_basis": "junior/senior anchors from Hays 2025 annual figures ÷12"
+        }
+      }
+    },
+    {
+      "id": "data-analyst",
+      "title": "Data Analyst",
+      "salary": {
+        "MY": {
+          "typical": {
+            "lo": 3500,
+            "hi": 5000
+          },
+          "junior": 8000,
+          "senior": 15000,
+          "currency": "MYR",
+          "period": "month",
+          "source_ids": [
+            "hays-asia-2025",
+            "jobstreet-my-live"
+          ],
+          "basis": "JobStreet live: RM3,500–5,000/mo; Hays 2025 Data Analyst RM96k–180k annual (RM8,000–15,000/mo).",
+          "typical_basis": "JobStreet Malaysia live market range (blended, all seniorities)",
+          "anchor_basis": "junior/senior anchors from Hays 2025 annual figures ÷12"
+        }
+      }
+    },
+    {
+      "id": "data-engineer",
+      "title": "Data Engineer",
+      "salary": {
+        "MY": {
+          "typical": {
+            "lo": 5750,
+            "hi": 8250
+          },
+          "junior": 10000,
+          "senior": 20000,
+          "currency": "MYR",
+          "period": "month",
+          "source_ids": [
+            "hays-asia-2025",
+            "jobstreet-my-live"
+          ],
+          "basis": "JobStreet live: RM5,750–8,250/mo; Hays 2025 Data Engineer RM120k–240k annual (RM10,000–20,000/mo).",
+          "typical_basis": "JobStreet Malaysia live market range (blended, all seniorities)",
+          "anchor_basis": "junior/senior anchors from Hays 2025 annual figures ÷12"
+        }
+      }
+    },
+    {
+      "id": "machine-learning-engineer",
+      "title": "Machine Learning / AI Engineer",
+      "salary": {
+        "MY": {
+          "typical": {
+            "lo": 8000,
+            "hi": 20000
+          },
+          "junior": 8000,
+          "senior": 20000,
+          "currency": "MYR",
+          "period": "month",
+          "source_ids": [
+            "hays-asia-2025",
+            "jobstreet-my-live"
+          ],
+          "basis": "No JobStreet page exists for this role; range is Hays 2025 Machine Learning Engineer RM96k–240k annual (RM8,000–20,000/mo).",
+          "typical_basis": "Derived from Hays 2025 annual figures ÷12 (no JobStreet page for this role)",
+          "anchor_basis": "junior/senior anchors from Hays 2025 annual figures ÷12"
+        }
+      }
+    },
+    {
+      "id": "devops-engineer",
+      "title": "DevOps Engineer",
+      "salary": {
+        "MY": {
+          "typical": {
+            "lo": 7250,
+            "hi": 9750
+          },
+          "junior": 8000,
+          "senior": 20000,
+          "currency": "MYR",
+          "period": "month",
+          "source_ids": [
+            "hays-asia-2025",
+            "jobstreet-my-live"
+          ],
+          "basis": "JobStreet live: RM7,250–9,750/mo; Hays 2025 DevOps Engineer RM96k–240k annual (RM8,000–20,000/mo).",
+          "typical_basis": "JobStreet Malaysia live market range (blended, all seniorities)",
+          "anchor_basis": "junior/senior anchors from Hays 2025 annual figures ÷12"
+        }
+      }
+    },
+    {
+      "id": "cloud-engineer",
+      "title": "Cloud Engineer",
+      "salary": {
+        "MY": {
+          "typical": {
+            "lo": 6500,
+            "hi": 8800
+          },
+          "junior": 10000,
+          "senior": 20000,
+          "currency": "MYR",
+          "period": "month",
+          "source_ids": [
+            "hays-asia-2025",
+            "jobstreet-my-live"
+          ],
+          "basis": "JobStreet live: RM6,500–8,800/mo; Hays 2025 Cloud Engineer RM120k–240k annual (RM10,000–20,000/mo).",
+          "typical_basis": "JobStreet Malaysia live market range (blended, all seniorities)",
+          "anchor_basis": "junior/senior anchors from Hays 2025 annual figures ÷12"
+        }
+      }
+    },
+    {
+      "id": "cybersecurity-analyst",
+      "title": "Cybersecurity Analyst/Engineer",
+      "salary": {
+        "MY": {
+          "typical": {
+            "lo": 6300,
+            "hi": 7500
+          },
+          "junior": 7000,
+          "senior": 25000,
+          "currency": "MYR",
+          "period": "month",
+          "source_ids": [
+            "hays-asia-2025",
+            "jobstreet-my-live"
+          ],
+          "basis": "JobStreet live (Cyber Security Analyst): RM6,300–7,500/mo; Hays 2025 SOC Analyst RM84k–240k and Security Engineer RM100k–300k annual (junior = SOC lo RM7,000, senior = Security Engineer hi RM25,000).",
+          "typical_basis": "JobStreet Malaysia live market range (blended, all seniorities)",
+          "anchor_basis": "junior/senior anchors from Hays 2025 annual figures ÷12"
+        }
+      }
+    },
+    {
+      "id": "qa-test-engineer",
+      "title": "QA/Test Engineer",
+      "salary": {
+        "MY": {
+          "typical": {
+            "lo": 3500,
+            "hi": 5000
+          },
+          "junior": 6667,
+          "senior": 11667,
+          "currency": "MYR",
+          "period": "month",
+          "source_ids": [
+            "hays-asia-2025",
+            "jobstreet-my-live"
+          ],
+          "basis": "JobStreet live (Quality Assurance Engineer, mixes manufacturing+software listings): RM3,500–5,000/mo; Hays 2025 Test Analyst RM80k–120k and Senior Test Analyst RM84k–140k annual (RM6,667–11,667/mo).",
+          "typical_basis": "JobStreet Malaysia live market range (blended, all seniorities)",
+          "anchor_basis": "junior/senior anchors from Hays 2025 annual figures ÷12"
+        }
+      }
+    },
+    {
+      "id": "network-engineer",
+      "title": "Network Engineer",
+      "salary": {
+        "MY": {
+          "typical": {
+            "lo": 4550,
+            "hi": 7050
+          },
+          "junior": 8000,
+          "senior": 25000,
+          "currency": "MYR",
+          "period": "month",
+          "source_ids": [
+            "hays-asia-2025",
+            "jobstreet-my-live"
+          ],
+          "basis": "JobStreet live: RM4,550–7,050/mo; Hays 2025 Network Engineer RM96k–300k annual (RM8,000–25,000/mo).",
+          "typical_basis": "JobStreet Malaysia live market range (blended, all seniorities)",
+          "anchor_basis": "junior/senior anchors from Hays 2025 annual figures ÷12"
+        }
+      }
+    },
+    {
+      "id": "business-analyst",
+      "title": "Business Analyst",
+      "salary": {
+        "MY": {
+          "typical": {
+            "lo": 4650,
+            "hi": 7150
+          },
+          "junior": 8000,
+          "senior": 13000,
+          "currency": "MYR",
+          "period": "month",
+          "source_ids": [
+            "hays-asia-2025",
+            "jobstreet-my-live"
+          ],
+          "basis": "JobStreet live: RM4,650–7,150/mo; Hays 2025 Business Analyst (Technology) RM96k–156k annual (RM8,000–13,000/mo).",
+          "typical_basis": "JobStreet Malaysia live market range (blended, all seniorities)",
+          "anchor_basis": "junior/senior anchors from Hays 2025 annual figures ÷12"
+        }
+      }
+    },
+    {
+      "id": "it-project-manager",
+      "title": "IT Project Manager",
+      "salary": {
+        "MY": {
+          "typical": {
+            "lo": 10000,
+            "hi": 25000
+          },
+          "junior": 10000,
+          "senior": 25000,
+          "currency": "MYR",
+          "period": "month",
+          "source_ids": [
+            "hays-asia-2025",
+            "jobstreet-my-live"
+          ],
+          "basis": "No IT-specific JobStreet page exists; range is Hays 2025 Project Manager (Technology) RM120k–300k annual (RM10,000–25,000/mo).",
+          "typical_basis": "Derived from Hays 2025 annual figures ÷12 (no IT-specific JobStreet page)",
+          "anchor_basis": "junior/senior anchors from Hays 2025 annual figures ÷12"
+        }
+      }
+    },
+    {
+      "id": "solutions-architect",
+      "title": "Solutions Architect",
+      "salary": {
+        "MY": {
+          "typical": {
+            "lo": 10750,
+            "hi": 13250
+          },
+          "junior": 15000,
+          "senior": 35000,
+          "currency": "MYR",
+          "period": "month",
+          "source_ids": [
+            "hays-asia-2025",
+            "jobstreet-my-live"
+          ],
+          "basis": "JobStreet live: RM10,750–13,250/mo; Hays 2025 Solutions & Enterprise Architect RM180k–420k annual (RM15,000–35,000/mo).",
+          "typical_basis": "JobStreet Malaysia live market range (blended, all seniorities)",
+          "anchor_basis": "junior/senior anchors from Hays 2025 annual figures ÷12"
+        }
+      }
+    },
+    {
+      "id": "product-manager",
+      "title": "Product Manager",
+      "salary": {
+        "MY": {
+          "typical": {
+            "lo": 7000,
+            "hi": 9000
+          },
+          "junior": 7000,
+          "senior": 25000,
+          "currency": "MYR",
+          "period": "month",
+          "source_ids": [
+            "hays-asia-2025",
+            "jobstreet-my-live"
+          ],
+          "basis": "JobStreet live: RM7,000–9,000/mo; Hays 2025 Product Manager (Projects & Change) RM84k–300k annual (RM7,000–25,000/mo).",
+          "typical_basis": "JobStreet Malaysia live market range (blended, all seniorities)",
+          "anchor_basis": "junior/senior anchors from Hays 2025 annual figures ÷12"
+        }
+      }
+    },
+    {
+      "id": "ui-ux-designer",
+      "title": "UI/UX Designer",
+      "salary": {
+        "MY": {
+          "typical": {
+            "lo": 2900,
+            "hi": 4700
+          },
+          "junior": 7000,
+          "senior": 20000,
+          "currency": "MYR",
+          "period": "month",
+          "source_ids": [
+            "hays-asia-2025",
+            "jobstreet-my-live"
+          ],
+          "basis": "JobStreet live (closest match 'Product Designer'): RM2,900–4,700/mo; Hays 2025 UX/UI Designer RM84k–240k annual (RM7,000–20,000/mo).",
+          "typical_basis": "JobStreet Malaysia live market range (blended, all seniorities)",
+          "anchor_basis": "junior/senior anchors from Hays 2025 annual figures ÷12"
+        }
+      }
+    },
+    {
+      "id": "it-support-helpdesk",
+      "title": "IT Support / Helpdesk",
+      "salary": {
+        "MY": {
+          "typical": {
+            "lo": 3000,
+            "hi": 4500
+          },
+          "junior": 3000,
+          "senior": 18000,
+          "currency": "MYR",
+          "period": "month",
+          "source_ids": [
+            "hays-asia-2025",
+            "jobstreet-my-live"
+          ],
+          "basis": "JobStreet live (Technical Support Role): RM3,000–4,500/mo (junior anchor from the same page); Hays 2025 Helpdesk Manager RM96k–216k annual — senior anchor RM18,000/mo is the management-track ceiling.",
+          "typical_basis": "JobStreet Malaysia live market range (blended, all seniorities)",
+          "anchor_basis": "junior/senior anchors from Hays 2025 annual figures ÷12"
+        }
+      }
+    }
+  ],
+  "benchmarks": {
+    "MY": {
+      "employment_rate_pct": 92.5,
+      "label": "Malaysian national average (MOHE SKPG 2024)",
+      "source_ids": [
+        "mohe-skpg2024"
+      ]
+    }
+  }
+}
