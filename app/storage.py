@@ -1,7 +1,7 @@
 """Supabase persistence — multi-user replacement for SQLite database."""
 
 import json
-from datetime import date
+from datetime import date, datetime, timezone
 from supabase import create_client, Client
 from .config import settings
 
@@ -60,6 +60,24 @@ def get_resume(user_id: str) -> dict | None:
         "markdown": row["markdown"],
         "profile": profile,
     }
+
+
+def get_career_map(user_id: str) -> dict | None:
+    res = supabase.table("career_maps").select("*").eq("user_id", user_id).execute()
+    if not res.data:
+        return None
+    map_json = res.data[0]["map_json"]
+    if isinstance(map_json, str):
+        map_json = json.loads(map_json)
+    return map_json
+
+
+def save_career_map(user_id: str, map_json: dict) -> None:
+    supabase.table("career_maps").upsert({
+        "user_id": user_id,
+        "map_json": map_json,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }).execute()
 
 
 def save_evaluation(user_id: str, *, company: str, role: str, jd_url: str | None,

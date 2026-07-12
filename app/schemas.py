@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -179,6 +179,61 @@ class CareerPathPlan(BaseModel):
     first_move: str = Field(
         description="The single highest-leverage action to take THIS week, in one sentence"
     )
+
+
+# ── Career map (graph-shaped career navigator) ──────────────────────
+
+
+class CareerMapNode(BaseModel):
+    id: str = Field(description="Unique kebab-case slug within the map, e.g. 'senior-backend-eng'")
+    title: str = Field(description="Concrete role title")
+    kind: Literal["current", "progression", "pivot", "wildcard"]
+    duration: str = Field(
+        description='Distance from today, e.g. "6-12 months", "2-3 years". Use "Today" for the current node'
+    )
+    fit: float = Field(ge=1, le=5, description="How realistic this role is from the current position")
+    salary_hint: str = Field("", description='Rough band, e.g. "~ S$130-165k"; empty if unknown')
+    why: str = Field(description="Rationale citing resume/evaluation evidence explicitly")
+    skill_gaps: list[str] = []
+    moves: list[CareerMove] = []
+    expandable: bool = Field(False, description="True on leaf nodes that can be explored further")
+
+
+class CareerMapEdge(BaseModel):
+    source: str = Field(description="Parent node id")
+    target: str = Field(description="Child node id")
+    kind: Literal["progression", "pivot", "wildcard"]
+
+
+class CareerMapDraft(BaseModel):
+    """LLM structured output — the server adds user_id/generated_at."""
+
+    current_assessment: str = Field(description="Where the candidate stands today")
+    nodes: list[CareerMapNode] = Field(description="14-20 nodes incl. exactly one 'current' root")
+    edges: list[CareerMapEdge] = Field(description="Directed edges from root outward")
+    recommended_node_id: str = Field(description="id of the single best next move")
+
+
+class CareerMapOut(CareerMapDraft):
+    user_id: str
+    generated_at: str
+
+
+class CareerMapIn(BaseModel):
+    user_id: str
+    force_refresh: bool = False
+
+
+class CareerMapExpandIn(BaseModel):
+    user_id: str
+    node_id: str
+
+
+class CareerMapExpansion(BaseModel):
+    """LLM structured output for expanding one leaf node."""
+
+    nodes: list[CareerMapNode] = Field(description="2-4 new child roles beyond the target node")
+    edges: list[CareerMapEdge] = Field(description="Edges connecting new nodes (from the target or between them)")
 
 
 class ParsedResume(BaseModel):
