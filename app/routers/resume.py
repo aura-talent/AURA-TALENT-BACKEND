@@ -1,10 +1,12 @@
 import json
 import re
 
-from fastapi import APIRouter, File, Form, HTTPException, Response, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Response, UploadFile
 from fastapi.responses import StreamingResponse
 
 from .. import storage
+from ..employer import storage as employer_storage
+from ..employer.services.wlc import trigger_wlc_evaluation
 from ..graphs.resume import cover_letter_graph, extract_text, generate_graph, parse_graph, suggest_graph
 from ..schemas import (
     CoverLetterIn,
@@ -47,8 +49,13 @@ MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 
 
 @router.post("/upload", response_model=ResumeOut)
-async def upload_resume(user_id: str = Form(...), file: UploadFile = File(...)):
-    """Upload a resume file (PDF, DOCX, TXT, or MD); parsed to clean markdown."""
+async def upload_resume(
+    background_tasks: BackgroundTasks,
+    user_id: str = Form(...),
+    file: UploadFile = File(...),
+):
+    """Upload a resume file (PDF, DOCX, TXT, or MD); parsed to clean markdown.
+    After saving, re-scores all existing job applications in the background."""
     verify_user_role(user_id, ["candidate"])
     content = await file.read()
     if len(content) > MAX_UPLOAD_BYTES:
@@ -56,16 +63,17 @@ async def upload_resume(user_id: str = Form(...), file: UploadFile = File(...)):
     raw = extract_text(file.filename or "resume.txt", content)
     if len(raw.strip()) < 100:
         raise HTTPException(422, "Could not extract enough text from the file")
-    return await _parse_and_save(user_id, raw)
+    return await _parse_and_save(user_id, raw, background_tasks)
 
 
 @router.post("/text", response_model=ResumeOut)
-async def submit_resume_text(body: ResumeTextIn):
-    """Submit resume as raw text (e.g. pasted into the website)."""
+async def submit_resume_text(body: ResumeTextIn, background_tasks: BackgroundTasks):
+    """Submit resume as raw text (e.g. pasted into the website).
+    After saving, re-scores all existing job applications in the background."""
     verify_user_role(body.user_id, ["candidate"])
     if len(body.text.strip()) < 100:
         raise HTTPException(422, "Resume text too short")
-    return await _parse_and_save(body.user_id, body.text)
+    return await _parse_and_save(body.user_id, body.text, background_tasks)
 
 
 @router.post("/suggestions", response_model=SuggestOut)
@@ -285,9 +293,30 @@ async def get_resume(user_id: str):
     return ResumeOut(**resume)
 
 
-async def _parse_and_save(user_id: str, raw_text: str) -> ResumeOut:
+async def _parse_and_save(
+    user_id: str,
+    raw_text: str,
+    background_tasks: BackgroundTasks | None = None,
+) -> ResumeOut:
+    """Parse raw text into structured markdown, persist it, then queue WLC
+    re-evaluations for every job the candidate has already applied to."""
     result = await parse_graph.ainvoke({"raw_text": raw_text})
     parsed = result["parsed"]
     profile = parsed.model_dump(exclude={"markdown"})
     storage.save_resume(user_id, parsed.markdown, profile)
+
+    # Re-score all existing applications in the background
+    if background_tasks is not None:
+        try:
+            applications = employer_storage.list_applications_for_candidate(user_id)
+            for app in applications:
+                background_tasks.add_task(
+                    trigger_wlc_evaluation,
+                    job_id=app["job_id"],
+                    candidate_user_id=user_id,
+                    source="applied",
+                )
+        except Exception:
+            pass  # Never block the resume save if WLC scheduling fails
+
     return ResumeOut(user_id=user_id, markdown=parsed.markdown, profile=profile)
