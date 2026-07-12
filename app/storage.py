@@ -393,13 +393,14 @@ def create_manual_application(user_id: str, company: str, role: str, status: str
     if res.data:
         app = res.data[0]
         return {
-            "evaluation_id": 0,
             "id": app["id"],
+            "evaluation_id": app.get("evaluation_id") or 0,
             "date": app.get("date") or "",
-            "company": app["company"],
-            "role": app["role"],
-            "score": 0.0,
-            "status": app["status"],
+            "company": app.get("company") or "",
+            "role": app.get("role") or "",
+            "score": app.get("score") or 0.0,
+            "user_id": app.get("candidate_user_id") or user_id,
+            "status": app.get("status") or "Applied",
             "interview_type": app.get("interview_type") or "none",
             "mock_interview_done": bool(app.get("mock_interview_done")),
             "notes": app.get("notes") or "",
@@ -552,116 +553,53 @@ def _eval_row(row: dict) -> dict:
     }
 
 
-# ── Employer pipeline updates ─────────────────────────────────────────
+# ── Candidate pipeline get ------------------------------------
 
 
 def get_pipeline_updates(candidate_user_id: str) -> list[dict]:
-    """Fetch all employer-pushed pipeline stage updates for a candidate."""
+    """Fetch all pipeline stage events for a specific candidate by joining with job_applications."""
     try:
-        res = supabase.table("employer_pipeline_updates") \
-            .select("*") \
-            .eq("candidate_user_id", candidate_user_id) \
-            .order("updated_at", desc=True) \
+        # We use job_applications!inner to perform a strict SQL INNER JOIN on the parent table
+        res = (
+            supabase.table("job_application_stage_events")
+            .select("*, job_applications!inner(candidate_user_id, role, company)")
+            .eq("job_applications.candidate_user_id", candidate_user_id)
+            .order("created_at", desc=True)
             .execute()
+        )
+        
+        stage_mapping = {
+            "application received": 0,
+            "under review": 1,
+            "shortlisted": 2,
+            "interview scheduled": 3,
+            "assessment": 4,
+            "offer extended": 5,
+            "hired": 6
+        }
+        
         out = []
         for row in (res.data or []):
+            app_info = row.get("job_applications") or {}
+            
+            stage_str = row.get("to_stage") or "Application Received"
+            
             out.append({
                 "id": str(row.get("id", "")),
-                "employer_id": row.get("employer_id", ""),
-                "application_id": row.get("application_id") or None,
-                "candidate_user_id": row.get("candidate_user_id") or None,
-                "candidate_name": row.get("candidate_name", ""),
-                "job_title": row.get("job_title", ""),
-                "stage": row.get("stage", ""),
-                "stage_index": int(row.get("stage_index", 0)),
+                "employer_id": row.get("changed_by") or "", 
+                "application_id": str(row.get("job_application_id", "")),
+                "candidate_user_id": candidate_user_id,
+                "candidate_name": "Candidate",
+                "job_title": f"{app_info.get('role', '')} at {app_info.get('company', '')}".strip() or "Unknown Position",
+                "stage": stage_str,
+                "stage_index": stage_mapping.get(stage_str.lower(), 0),
                 "note": row.get("note") or "",
-                "updated_at": str(row.get("updated_at", "")),
+                "updated_at": str(row.get("created_at", "")),
             })
         return out
     except Exception as e:
-        print("Error fetching pipeline updates:", e)
+        print("Error fetching candidate stage events pipeline:", e)
         return []
-
-
-def post_pipeline_update(
-    employer_id: str,
-    candidate_name: str,
-    job_title: str,
-    stage: str,
-    stage_index: int,
-    note: str = "",
-    candidate_user_id: str | None = None,
-    application_id: str | None = None,
-) -> dict | None:
-    """Record a new employer pipeline stage update."""
-    from datetime import datetime
-    data = {
-        "employer_id": employer_id,
-        "candidate_name": candidate_name,
-        "job_title": job_title,
-        "stage": stage,
-        "stage_index": stage_index,
-        "note": note,
-        "updated_at": datetime.utcnow().isoformat(),
-    }
-    if candidate_user_id:
-        data["candidate_user_id"] = candidate_user_id
-    if application_id:
-        data["application_id"] = application_id
-
-    # Auto-sync mapping: Employer Pipeline Stage -> Candidate Kanban Status
-    # Pipeline stages: "Application Received", "Under Review", "Shortlisted", "Interview Scheduled", "Assessment", "Offer Extended", "Hired", "Rejected"
-    # Kanban statuses: "Evaluated", "Applied", "Phone Screen", "Technical Test", "First Round", "Second Round", "Final Round", "Offer", "Rejected", "Withdrawn"
-    status_map = {
-        "Application Received": "Applied",
-        "Under Review": "Phone Screen",
-        "Shortlisted": "First Round",
-        "Interview Scheduled": "First Round",
-        "Assessment": "Technical Test",
-        "Offer Extended": "Offer",
-        "Hired": "Offer",
-        "Rejected": "Rejected",
-    }
-    mapped_status = status_map.get(stage)
-
-    try:
-        # If we mapped a status and we have the application_id, auto-update the application!
-        if mapped_status and application_id and candidate_user_id:
-            # We need to fetch the existing timeline to append to it
-            app_res = supabase.table("job_applications").select("timeline").eq("id", application_id).execute()
-            if app_res.data:
-                old_timeline = app_res.data[0].get("timeline") or []
-                today = datetime.utcnow().strftime("%Y-%m-%d")
-                new_timeline = old_timeline + [{
-                    "date": today,
-                    "title": f"Moved to {mapped_status}",
-                    "description": f"Employer advanced your application to {stage}.",
-                    "custom": False,
-                }]
-                
-                supabase.table("job_applications").update({
-                    "status": mapped_status,
-                    "timeline": new_timeline
-                }).eq("id", application_id).execute()
-
-        res = supabase.table("employer_pipeline_updates").insert(data).execute()
-        if res.data:
-            row = res.data[0]
-            return {
-                "id": str(row.get("id", "")),
-                "employer_id": row.get("employer_id", ""),
-                "application_id": row.get("application_id") or None,
-                "candidate_user_id": row.get("candidate_user_id") or None,
-                "candidate_name": row.get("candidate_name", ""),
-                "job_title": row.get("job_title", ""),
-                "stage": row.get("stage", ""),
-                "stage_index": int(row.get("stage_index", 0)),
-                "note": row.get("note") or "",
-                "updated_at": str(row.get("updated_at", "")),
-            }
-    except Exception as e:
-        print("Error posting pipeline update:", e)
-    return None
 
 def get_templates(role_filter: Optional[str] = None) -> List[Dict[str, Any]]:
     """
