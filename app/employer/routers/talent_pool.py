@@ -1,8 +1,11 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException
+from pydantic import BaseModel
+from typing import Literal, Optional
 
 from ...auth import verify_user_role
 from .. import storage
 from ..schemas import EvaluationSubmission
+from ..services.wlc import trigger_wlc_evaluation
 
 router = APIRouter(prefix="/talent-pool", tags=["employer:talent-pool"])
 
@@ -68,6 +71,42 @@ async def submit_evaluation(body: EvaluationSubmission):
         raise HTTPException(404, "Job not found")
     fields = body.model_dump(exclude_none=True)
     return storage.upsert_evaluation(fields)
+
+
+class EvaluateTriggerIn(BaseModel):
+    job_id: str
+    candidate_user_id: str
+    employer_id: str
+    source: Literal["applied", "aura", "headhunter"] = "aura"
+    headhunter_id: Optional[str] = None
+
+
+@router.post("/evaluate/trigger")
+async def trigger_evaluation(
+    body: EvaluateTriggerIn,
+    background_tasks: BackgroundTasks,
+):
+    """Manually trigger a WLC re-evaluation for a (job, candidate) pair.
+    Returns immediately; scoring runs in the background.
+
+    Useful when an employer updates job weights after candidates have already
+    applied — call this to refresh their scores under the new formula."""
+    verify_user_role(body.employer_id, ["employer"])
+    job = storage.get_job(body.job_id)
+    if not job or job["employer_id"] != body.employer_id:
+        raise HTTPException(404, "Job not found")
+    resume = storage.get_candidate_resume_md(body.candidate_user_id)
+    if not resume:
+        raise HTTPException(404, "Candidate has no resume on file")
+
+    background_tasks.add_task(
+        trigger_wlc_evaluation,
+        job_id=body.job_id,
+        candidate_user_id=body.candidate_user_id,
+        source=body.source,
+        headhunter_id=body.headhunter_id,
+    )
+    return {"ok": True, "status": "queued"}
 
 
 @router.get("/candidates/{candidate_user_id}/resume")

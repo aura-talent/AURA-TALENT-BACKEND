@@ -1,9 +1,10 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 
 from ...auth import verify_user_role
 from ...logging_config import logger
 from .. import storage
 from ..schemas import ApplicationCreate, StageMove
+from ..services.wlc import trigger_wlc_evaluation
 
 router = APIRouter(prefix="/applications", tags=["employer:pipeline"])
 
@@ -13,11 +14,14 @@ def _stage_config(job: dict) -> list[dict]:
 
 
 @router.post("")
-async def create_application(body: ApplicationCreate):
+async def create_application(body: ApplicationCreate, background_tasks: BackgroundTasks):
     """Register a candidate as an applicant on a job. Called when a
     candidate applies (candidate-side flow) or when an employer adds one
     manually — either way the stage must come from the job's configured
-    list."""
+    list.
+
+    After the application row is created, the WLC scoring engine is
+    queued as a background task so the response returns immediately."""
     job = storage.get_job(body.job_id)
     if not job:
         raise HTTPException(404, "Job not found")
@@ -30,6 +34,15 @@ async def create_application(body: ApplicationCreate):
     except Exception:
         raise HTTPException(409, "Candidate has already applied to this job")
     logger.info(f"📥 Application {app_row['id']}: {body.candidate_user_id} → job {body.job_id}")
+
+    # Fire WLC evaluation in the background — does not block the response
+    background_tasks.add_task(
+        trigger_wlc_evaluation,
+        job_id=body.job_id,
+        candidate_user_id=body.candidate_user_id,
+        source="applied",
+    )
+
     return app_row
 
 

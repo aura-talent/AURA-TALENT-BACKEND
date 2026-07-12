@@ -238,6 +238,17 @@ def list_evaluations_for_candidate(candidate_user_id: str) -> list[dict]:
     return res.data or []
 
 
+def list_applications_for_candidate(candidate_user_id: str) -> list[dict]:
+    """All job_applications rows for a candidate — used to re-score every
+    existing application when the candidate updates their resume."""
+    res = (
+        supabase.table("job_applications").select("job_id, candidate_user_id")
+        .eq("candidate_user_id", candidate_user_id)
+        .execute()
+    )
+    return res.data or []
+
+
 # ── job_plans ────────────────────────────────────────────────────────────
 
 def get_job_plan(job_id: str) -> dict | None:
