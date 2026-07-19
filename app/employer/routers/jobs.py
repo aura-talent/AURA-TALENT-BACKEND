@@ -3,7 +3,8 @@ from fastapi import APIRouter, HTTPException
 from ...auth import verify_user_role
 from ...logging_config import logger
 from .. import storage
-from ..schemas import JobCreate, JobUpdate
+from ..schemas import JobCreate, JobDraftIn, JobUpdate, PhaseAdvance
+from ..services import pipeline_engine
 
 router = APIRouter(prefix="/jobs", tags=["employer:jobs"])
 
@@ -46,6 +47,27 @@ async def create_job(body: JobCreate):
     return _with_relations(job)
 
 
+@router.post("/draft")
+async def draft_job(body: JobDraftIn):
+    """AI job intake (agent seam). Drafts a job + interview questions from a
+    hiring brief ('aura' mode) or a JD URL ('url' mode) via the job_intake
+    graph. Returns a draft for the editor — nothing persists until the
+    employer saves through POST /employer/jobs."""
+    verify_user_role(body.employer_id, ["employer"])
+    from ..graphs.job_intake import job_intake_graph
+    result = await job_intake_graph.ainvoke({
+        "mode": body.mode,
+        "brief": body.brief,
+        "jd_url": body.jd_url,
+        "question_count": body.question_count,
+    })
+    draft = result["draft"]
+    return {
+        "draft": draft.model_dump() if hasattr(draft, "model_dump") else draft,
+        "interview_questions": result.get("interview_questions", []),
+    }
+
+
 @router.get("")
 async def list_jobs(employer_id: str):
     verify_user_role(employer_id, ["employer"])
@@ -69,6 +91,81 @@ async def update_job(job_id: str, employer_id: str, body: JobUpdate):
     if body.headhunter_ids is not None:
         storage.set_job_headhunters(job_id, body.headhunter_ids)
     return _with_relations(job)
+
+
+@router.get("/{job_id}/phase-progress")
+async def job_phase_progress(job_id: str, employer_id: str):
+    """Deterministic progress for the job's current hiring-pipeline phase:
+    current/next phase, automation level, and whether the current phase's
+    target metric is met. Powers the board's advance hint + auto-advance."""
+    job = _require_owned_job(job_id, employer_id)
+    return pipeline_engine.phase_progress(job)
+
+
+@router.post("/{job_id}/advance")
+async def advance_job_phase(job_id: str, body: PhaseAdvance):
+    """Advance a job to the next hiring-pipeline phase (or an explicit one),
+    writing a job_phase_events audit row. Manual advances (a human clicking
+    'Advance') pass require_target=false; auto-advance passes it true so the
+    deterministic engine refuses unless the current phase's target is met."""
+    job = _require_owned_job(job_id, body.employer_id)
+    result = pipeline_engine.advance_phase(
+        job,
+        to_phase=body.to_phase,
+        trigger=body.trigger,
+        changed_by=body.employer_id if body.trigger == "manual" else None,
+        note=body.note,
+        require_target=body.require_target,
+    )
+    if result.get("advanced"):
+        logger.info(
+            f"➡️  Phase advance {job_id}: {result['from_phase']} → {result['to_phase']} "
+            f"(trigger={result['trigger']})"
+        )
+    return result
+
+
+@router.get("/{job_id}/phase-events")
+async def job_phase_events(job_id: str, employer_id: str):
+    """Audit history of pipeline-phase moves for a job (real activity feed)."""
+    _require_owned_job(job_id, employer_id)
+    return storage.list_job_phase_events(job_id)
+
+
+def _persist_suggestions(employer_id: str, job_id: str, source: str, actions: list) -> list[dict]:
+    """Replace a source's prior open suggestions for a job with fresh ones."""
+    storage.delete_open_suggested_actions(employer_id, source=source, job_id=job_id)
+    saved = []
+    for a in actions:
+        a = a.model_dump() if hasattr(a, "model_dump") else a
+        saved.append(storage.create_suggested_action({
+            "employer_id": employer_id,
+            "job_id": (a.get("payload") or {}).get("job_id") or job_id,
+            "candidate_user_id": (a.get("payload") or {}).get("candidate_user_id"),
+            "kind": a["kind"],
+            "title": a["title"],
+            "body": a.get("body"),
+            "payload": a.get("payload") or {},
+            "source": source,
+        }))
+    return saved
+
+
+@router.post("/{job_id}/run")
+async def run_hr_supervisor(job_id: str, employer_id: str):
+    """Run the HR supervisor (agent seam) for a job: orchestrates specialists,
+    composes Aura suggestions (persisted to suggested_actions), and — when the
+    job is on 'auto' — advances the phase via the deterministic gate. Returns
+    the saved suggestions and any auto-advance result."""
+    _require_owned_job(job_id, employer_id)
+    from ..graphs.hr_supervisor import hr_supervisor_graph
+    result = await hr_supervisor_graph.ainvoke({
+        "employer_id": employer_id, "job_id": job_id,
+    })
+    saved = _persist_suggestions(
+        employer_id, job_id, "hr-supervisor", result.get("suggestions", []),
+    )
+    return {"suggestions": saved, "auto_advanced": result.get("auto_advanced", {"advanced": False})}
 
 
 @router.delete("/{job_id}")

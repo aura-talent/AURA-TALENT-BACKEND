@@ -32,15 +32,7 @@ from ...logging_config import logger
 from .. import storage
 from ..prompts import METRICS_SYSTEM, RUBRIC_SYSTEM
 from ..schemas import MetricsOutput, RubricOutput
-
-# Blend constants — adjust here without touching the formula logic.
-# rubric_wlc captures employer-configured dimension weights (structural fit);
-# metric_wlc captures how the 6 evidence metrics rank against each other.
-_RUBRIC_WEIGHT = 0.60
-_METRIC_WEIGHT = 0.40
-
-# Default priority when a key is absent from metric_priorities (mid-scale).
-_DEFAULT_PRIORITY = 5
+from ..services.scoring import compute_wlc_score
 
 
 class EvaluateCandidateState(TypedDict, total=False):
@@ -133,67 +125,25 @@ async def award_rubric(state: EvaluateCandidateState) -> dict:
 
 
 def compute_wlc(state: EvaluateCandidateState) -> dict:
-    """Blended WLC: two employer-configured layers combined.
+    """Deterministic blend of the two extracted-signal layers into wlc_score.
 
-    Layer 1 — rubric_wlc (dimension_weights)
-        Σ rubric[dim] × dimension_weights[dim] / 100
-        Captures how the employer weights the four skill dimensions
-        (technical, problemSolving, communication, culture).
-
-    Layer 2 — metric_wlc (metric_priorities)
-        Σ metric[key] × priority[key] / Σ priority[key]
-        Captures how much the employer cares about each evidence signal
-        (reputation, match, northStar, compensation, culture, redFlags).
-        Priorities are normalized so their absolute scale doesn't matter.
-
-    Final: wlc_score = _RUBRIC_WEIGHT × rubric_wlc + _METRIC_WEIGHT × metric_wlc
+    The math lives in services/scoring.compute_wlc_score (the L0 tool) so the
+    number is computed identically by the graph, a re-score endpoint, or any
+    future agent — the LLM nodes above only produce the metric/rubric signals,
+    never the final number.
     """
     job = state["job"]
-
-    # ── Layer 1: rubric × dimension_weights ──────────────────────────────
-    rubric = state["rubric_out"].rubric.model_dump()
-    dw = job.get("dimension_weights") or {}
-    
-    # Apply equal default weights if dimension_weights is not configured or sums to 0
-    if not dw or sum(dw.values()) == 0:
-        dw = {
-            "technical": 25,
-            "problemSolving": 25,
-            "communication": 25,
-            "culture": 25
-        }
-    rubric_wlc = sum(rubric[dim] * dw.get(dim, 0) for dim in rubric) / 100
-
-    # ── Layer 2: metrics × metric_priorities (normalized) ────────────────
-    metrics = state["metrics_out"].metrics.model_dump()
-    mp = job.get("metric_priorities") or {}
-
-    total_priority = sum(mp.get(k, _DEFAULT_PRIORITY) for k in metrics)
-    if total_priority > 0:
-        metric_wlc = (
-            sum(metrics[k] * mp.get(k, _DEFAULT_PRIORITY) for k in metrics)
-            / total_priority
-        )
-    else:
-        # Fallback: plain average (shouldn't happen with defaults, but be safe)
-        metric_wlc = sum(metrics.values()) / max(len(metrics), 1)
-
-    # ── Blend ─────────────────────────────────────────────────────────────
-    wlc_score = round(
-        _RUBRIC_WEIGHT * rubric_wlc + _METRIC_WEIGHT * metric_wlc, 1
+    result = compute_wlc_score(
+        metrics=state["metrics_out"].metrics.model_dump(),
+        rubric=state["rubric_out"].rubric.model_dump(),
+        dimension_weights=job.get("dimension_weights"),
+        metric_priorities=job.get("metric_priorities"),
     )
-
     logger.debug(
-        f"compute_wlc: rubric_wlc={rubric_wlc:.1f} metric_wlc={metric_wlc:.1f} "
-        f"→ wlc_score={wlc_score} "
-        f"(blend {int(_RUBRIC_WEIGHT*100)}/{int(_METRIC_WEIGHT*100)})"
+        f"compute_wlc: rubric_wlc={result['rubric_wlc']} "
+        f"metric_wlc={result['metric_wlc']} → wlc_score={result['wlc_score']}"
     )
-
-    return {
-        "rubric_wlc": round(rubric_wlc, 1),
-        "metric_wlc": round(metric_wlc, 1),
-        "wlc_score": wlc_score,
-    }
+    return result
 
 
 async def persist(state: EvaluateCandidateState) -> dict:

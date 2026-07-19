@@ -393,3 +393,145 @@ def get_candidate_resume(candidate_user_id: str) -> dict | None:
         .eq("user_id", candidate_user_id).execute()
     )
     return res.data[0] if res.data else None
+
+
+# ── job_phase_events (0002) ──────────────────────────────────────────────
+
+def add_job_phase_event(
+    job_id: str, from_phase: str | None, to_phase: str,
+    trigger: str = "manual", changed_by: str | None = None, note: str | None = None,
+) -> dict:
+    res = supabase.table("job_phase_events").insert({
+        "job_id": job_id,
+        "from_phase": from_phase,
+        "to_phase": to_phase,
+        "trigger": trigger,
+        "changed_by": changed_by,
+        "note": note,
+    }).execute()
+    return res.data[0]
+
+
+def list_job_phase_events(job_id: str) -> list[dict]:
+    res = (
+        supabase.table("job_phase_events").select("*")
+        .eq("job_id", job_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return res.data or []
+
+
+# ── offers (0002) ────────────────────────────────────────────────────────
+
+def upsert_offer(fields: dict) -> dict:
+    """Upsert on (job_id, candidate_user_id) — re-sending an offer overwrites
+    the prior row for that pairing."""
+    fields["updated_at"] = _now()
+    res = (
+        supabase.table("offers")
+        .upsert(fields, on_conflict="job_id,candidate_user_id")
+        .execute()
+    )
+    return res.data[0]
+
+
+def get_offer(job_id: str, candidate_user_id: str) -> dict | None:
+    return _one(
+        supabase.table("offers").select("*")
+        .eq("job_id", job_id).eq("candidate_user_id", candidate_user_id)
+        .execute()
+    )
+
+
+def list_offers_for_job(job_id: str) -> list[dict]:
+    res = (
+        supabase.table("offers").select("*")
+        .eq("job_id", job_id)
+        .order("sent_at", desc=True)
+        .execute()
+    )
+    return res.data or []
+
+
+def update_offer_status(job_id: str, candidate_user_id: str, status: str) -> dict | None:
+    fields = {"status": status, "updated_at": _now()}
+    if status in ("accepted", "declined"):
+        fields["responded_at"] = _now()
+    res = (
+        supabase.table("offers").update(fields)
+        .eq("job_id", job_id).eq("candidate_user_id", candidate_user_id)
+        .execute()
+    )
+    return _one(res)
+
+
+def count_offers_for_job(job_id: str, status: str | None = None) -> int:
+    q = supabase.table("offers").select("id").eq("job_id", job_id)
+    if status:
+        q = q.eq("status", status)
+    res = q.execute()
+    return len(res.data or [])
+
+
+# ── comms_messages (0002) ────────────────────────────────────────────────
+
+def create_comms_message(fields: dict) -> dict:
+    res = supabase.table("comms_messages").insert(fields).execute()
+    return res.data[0]
+
+
+def list_comms_messages(
+    job_id: str | None = None, candidate_user_id: str | None = None,
+) -> list[dict]:
+    q = supabase.table("comms_messages").select("*")
+    if job_id:
+        q = q.eq("job_id", job_id)
+    if candidate_user_id:
+        q = q.eq("candidate_user_id", candidate_user_id)
+    res = q.order("created_at", desc=True).execute()
+    return res.data or []
+
+
+# ── suggested_actions (0002) ─────────────────────────────────────────────
+
+def create_suggested_action(fields: dict) -> dict:
+    res = supabase.table("suggested_actions").insert(fields).execute()
+    return res.data[0]
+
+
+def get_suggested_action(action_id: str) -> dict | None:
+    return _one(
+        supabase.table("suggested_actions").select("*").eq("id", action_id).execute()
+    )
+
+
+def list_suggested_actions(
+    employer_id: str, status: str | None = "open",
+) -> list[dict]:
+    q = supabase.table("suggested_actions").select("*").eq("employer_id", employer_id)
+    if status:
+        q = q.eq("status", status)
+    res = q.order("created_at", desc=True).execute()
+    return res.data or []
+
+
+def update_suggested_action(action_id: str, fields: dict) -> dict | None:
+    fields["updated_at"] = _now()
+    res = (
+        supabase.table("suggested_actions").update(fields)
+        .eq("id", action_id).execute()
+    )
+    return _one(res)
+
+
+def delete_open_suggested_actions(employer_id: str, source: str, job_id: str | None = None) -> None:
+    """Clear prior open suggestions from a given source before regenerating,
+    so an agent re-run replaces rather than duplicates its output."""
+    q = (
+        supabase.table("suggested_actions").delete()
+        .eq("employer_id", employer_id).eq("source", source).eq("status", "open")
+    )
+    if job_id:
+        q = q.eq("job_id", job_id)
+    q.execute()
