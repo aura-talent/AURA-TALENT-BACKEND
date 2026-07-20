@@ -4,7 +4,7 @@ from typing import Literal, Optional
 
 from ...auth import verify_user_role
 from .. import storage
-from ..schemas import EvaluationSubmission
+from ..schemas import EvaluationSubmission, NextActionsIn
 from ..services.wlc import trigger_wlc_evaluation
 
 router = APIRouter(prefix="/talent-pool", tags=["employer:talent-pool"])
@@ -107,6 +107,39 @@ async def trigger_evaluation(
         headhunter_id=body.headhunter_id,
     )
     return {"ok": True, "status": "queued"}
+
+
+@router.post("/candidates/{candidate_user_id}/next-actions")
+async def candidate_next_actions(candidate_user_id: str, body: NextActionsIn):
+    """Suggest next actions for a candidate (agent seam — candidate-management).
+    Persists the suggestions to suggested_actions (source='candidate-management')
+    and returns them. Job-scoped when job_id is given."""
+    verify_user_role(body.employer_id, ["employer"])
+    from ..graphs.candidate_management import candidate_management_graph
+    result = await candidate_management_graph.ainvoke({
+        "employer_id": body.employer_id,
+        "job_id": body.job_id,
+        "candidate_user_id": candidate_user_id,
+    })
+    actions = result.get("actions", [])
+
+    storage.delete_open_suggested_actions(
+        body.employer_id, source="candidate-management", job_id=body.job_id,
+    )
+    saved = []
+    for a in actions:
+        a = a.model_dump() if hasattr(a, "model_dump") else a
+        saved.append(storage.create_suggested_action({
+            "employer_id": body.employer_id,
+            "job_id": (a.get("payload") or {}).get("job_id") or body.job_id,
+            "candidate_user_id": (a.get("payload") or {}).get("candidate_user_id") or candidate_user_id,
+            "kind": a["kind"],
+            "title": a["title"],
+            "body": a.get("body"),
+            "payload": a.get("payload") or {},
+            "source": "candidate-management",
+        }))
+    return {"actions": saved}
 
 
 @router.get("/candidates/{candidate_user_id}/resume")

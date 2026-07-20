@@ -25,6 +25,8 @@ class JobCreate(BaseModel):
     keywords: list[str] = Field(default_factory=list)
     status: Literal["Active", "Draft"] = "Draft"
     pipeline_phase: Optional[str] = None  # id-slug from employer's hiring_pipeline_phases
+    automation_level: Optional[Literal["auto", "manual"]] = None  # DB default 'manual'
+    phase_targets: Optional[list[dict]] = None  # [{phaseId, metric, targetCount}]; DB default []
     mock_interview_enabled: bool = False
     interview_questions: list[Any] = Field(default_factory=list)
     job_application_stages: Optional[list[dict]] = None  # [{label,color,is_rejected}]; DB default when omitted
@@ -47,6 +49,8 @@ class JobUpdate(BaseModel):
     keywords: Optional[list[str]] = None
     status: Optional[Literal["Active", "Draft"]] = None
     pipeline_phase: Optional[str] = None
+    automation_level: Optional[Literal["auto", "manual"]] = None
+    phase_targets: Optional[list[dict]] = None
     mock_interview_enabled: Optional[bool] = None
     interview_questions: Optional[list[Any]] = None
     job_application_stages: Optional[list[dict]] = None
@@ -85,6 +89,134 @@ class StageMove(BaseModel):
     employer_id: str  # who is moving the card (role-checked, logged as changed_by)
     to_stage: str
     note: Optional[str] = None
+
+
+# ── pipeline phase advance ───────────────────────────────────────────────
+
+class PhaseAdvance(BaseModel):
+    """Advance a job to the next hiring-pipeline phase (or an explicit one).
+
+    trigger: 'manual' (a human clicked advance) | 'auto' (deterministic engine
+    hit the target) | an agent name. When require_target is true, the engine
+    refuses to advance unless the current phase's target metric is met — used
+    by auto-advance; manual advances pass it false (advance whenever ready)."""
+    employer_id: str
+    to_phase: Optional[str] = None  # default: next phase in the employer's order
+    trigger: str = "manual"
+    note: Optional[str] = None
+    require_target: bool = False
+
+
+# ── offers ───────────────────────────────────────────────────────────────
+
+class OfferCreate(BaseModel):
+    job_id: str
+    candidate_user_id: str
+    employer_id: str
+    email_subject: Optional[str] = None
+    email_body: Optional[str] = None
+
+
+class OfferUpdate(BaseModel):
+    employer_id: str
+    status: Literal["sent", "accepted", "declined", "rescinded"]
+
+
+# ── comms ────────────────────────────────────────────────────────────────
+
+class CommsSend(BaseModel):
+    """Send an email to a candidate and log it. The offer flow reuses this
+    (is_offer=True also writes/updates an offers row)."""
+    employer_id: str
+    candidate_user_id: str
+    job_id: Optional[str] = None
+    subject: str
+    body: str
+    template_id: Optional[str] = None
+    is_offer: bool = False
+
+
+class CommsGenerate(BaseModel):
+    """Ask the communication writer (agent seam) to draft an email for a
+    candidate given the pipeline context. Returns a draft; nothing is sent."""
+    employer_id: str
+    candidate_user_id: str
+    job_id: Optional[str] = None
+    kind: str = "general"  # general | interview_invite | follow_up | offer | rejection
+    instructions: Optional[str] = None
+
+
+class CommsDraftOut(BaseModel):
+    subject: str
+    body: str
+
+
+# ── suggested actions ────────────────────────────────────────────────────
+
+class SuggestedActionUpdate(BaseModel):
+    employer_id: str
+    status: Literal["open", "done", "dismissed"]
+
+
+# ── workforce plan draft (agent seam) ────────────────────────────────────
+
+class PlanDraftIn(BaseModel):
+    employer_id: str
+    job_id: Optional[str] = None   # existing job to plan for
+    brief: Optional[str] = None    # or a freeform brief when no job yet
+    title: Optional[str] = None
+
+
+class PlanDraftOut(BaseModel):
+    """LLM structured output for a drafted workforce plan. Returned to the
+    planner UI — nothing persists until the employer saves."""
+    priority: Optional[str] = None
+    openings: int = 1
+    baseline_headcount: Optional[int] = None
+    budget: Optional[float] = None
+    target_start_date: Optional[str] = None
+    target_fill_date: Optional[str] = None
+    justification: str
+    demand_signal_reason: Optional[str] = None
+    demand_signal_risk: Optional[str] = None
+
+
+# ── candidate next-actions (agent seam) ──────────────────────────────────
+
+class NextActionsIn(BaseModel):
+    employer_id: str
+    job_id: Optional[str] = None  # scope to one job, else across the candidate's rows
+
+
+class SuggestedActionOut(BaseModel):
+    kind: str
+    title: str
+    body: Optional[str] = None
+    payload: dict = Field(default_factory=dict)
+
+
+class NextActionsOut(BaseModel):
+    actions: list[SuggestedActionOut] = Field(default_factory=list)
+
+
+# ── employer profile import / onboarding (service, not an agent) ─────────
+
+class ProfileImportIn(BaseModel):
+    employer_id: str
+    source_url: Optional[str] = None   # e.g. a company page to scrape
+    raw_text: Optional[str] = None     # or pasted company info
+
+
+class EmployerProfileDraft(BaseModel):
+    """Structured company profile produced by the onboarding importer. Shape
+    mirrors EmployerProfileUpsert so the wizard can save it directly."""
+    company_name: Optional[str] = None
+    industry: Optional[str] = None
+    company_size: Optional[str] = None
+    headquarters: Optional[str] = None
+    about: Optional[str] = None
+    culture_values: list[str] = Field(default_factory=list)
+    career_growth: Optional[str] = None
 
 
 # ── job plans ────────────────────────────────────────────────────────────
