@@ -92,6 +92,26 @@ def list_job_headhunter_ids(job_id: str) -> list[str]:
     return [row["headhunter_id"] for row in (res.data or [])]
 
 
+def list_active_headhunter_ids_by_job(job_ids: list[str]) -> dict[str, list[str]]:
+    """Active-only headhunter ids per job — the subset hr_supervisor.py's
+    orchestrate() step 3 will actually source through, unlike the
+    status-agnostic list_job_headhunter_ids. Single batched query (dict
+    keyed by job_id), same calling convention as get_job_stats."""
+    if not job_ids:
+        return {}
+    res = (
+        supabase.table("job_headhunters")
+        .select("job_id, headhunter_id, headhunters!inner(status)")
+        .in_("job_id", job_ids)
+        .eq("headhunters.status", "Active")
+        .execute()
+    )
+    out: dict[str, list[str]] = {}
+    for row in (res.data or []):
+        out.setdefault(row["job_id"], []).append(row["headhunter_id"])
+    return out
+
+
 def set_job_headhunters(job_id: str, headhunter_ids: list[str]) -> None:
     """Replace the full assignment set for a job (matches the editor UX,
     which submits the whole selection)."""
@@ -208,6 +228,23 @@ def move_application_stage(
         "changed_by": changed_by,
         "note": note,
     }).execute()
+    return res.data[0]
+
+
+def set_selected_for_offer(application_id: str, selected: bool) -> dict:
+    """Set/clear the selected_for_offer snapshot flag (0004) — orthogonal to
+    `stage`, same "app code decides, never derived" pattern as is_rejected.
+    Used by both the deterministic auto-shortlist step and a human's manual
+    "Select for offer" action."""
+    res = (
+        supabase.table("job_applications")
+        .update({
+            "selected_for_offer": selected,
+            "selected_for_offer_at": _now() if selected else None,
+            "updated_at": _now(),
+        })
+        .eq("id", application_id).execute()
+    )
     return res.data[0]
 
 
@@ -611,6 +648,8 @@ def replace_open_suggestions(
             "body": a.get("body"),
             "payload": a.get("payload") or {},
             "source": source,
+            "agent": a.get("agent"),
+            "status": a.get("status") or "open",
         }))
     return saved
 

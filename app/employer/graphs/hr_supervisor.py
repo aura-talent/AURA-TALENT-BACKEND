@@ -31,6 +31,7 @@ from app.llm import get_llm
 
 from ..prompts import HR_SUPERVISOR_SYSTEM
 from ..schemas import SuggestedActionOut
+from ..services.headhunter_match import pick_headhunter
 
 
 class RoutingDecision(BaseModel):
@@ -79,29 +80,6 @@ async def _routing_decision(ctx: dict) -> RoutingDecision:
     ])
 
 
-def _pick_headhunter(job: dict, roster: list[dict]) -> dict | None:
-    """Deterministic match, not an LLM decision: score each active headhunter
-    by focus-area overlap with the job's keywords/team, tie-broken by fewest
-    current job assignments (load balancing) so the roster gets used evenly
-    even when nothing matches."""
-    from .. import storage
-
-    if not roster:
-        return None
-    job_terms = {t.lower() for t in (job.get("keywords") or [])}
-    for extra in (job.get("team"), job.get("title")):
-        if extra:
-            job_terms.add(extra.lower())
-
-    def score(hh: dict) -> tuple:
-        focus = {f.lower() for f in (hh.get("focus_areas") or [])}
-        overlap = len(focus & job_terms)
-        load = len(storage.list_jobs_for_headhunter(hh["id"]))
-        return (-overlap, load)
-
-    return sorted(roster, key=score)[0]
-
-
 async def orchestrate(state: HRSupervisorState) -> dict:
     """Routes to specialists based on an LLM routing decision, then runs the
     deterministic auto-advance gate — which is NEVER influenced by that
@@ -124,13 +102,13 @@ async def orchestrate(state: HRSupervisorState) -> dict:
             h for h in storage.list_headhunters(state["employer_id"])
             if h.get("status") == "Active"
         ]
-        picked = _pick_headhunter(job, roster)
+        picked = pick_headhunter(job, roster)
         if picked:
             storage.set_job_headhunters(state["job_id"], [picked["id"]])
             ctx["headhunters"] = [picked]
             just_assigned = True
             suggestions.append(SuggestedActionOut(
-                kind="headhunter_assigned",
+                kind="headhunter_assigned", agent="headhunter-sourcing", status="done",
                 title=f"Assigned {picked['name']} to {job.get('title', 'this role')}",
                 body="Auto-assigned based on focus-area match — sourcing starts this run.",
                 payload={"job_id": state["job_id"], "headhunter_id": picked["id"]},
@@ -159,18 +137,23 @@ async def orchestrate(state: HRSupervisorState) -> dict:
         draft = pl.get("draft")
         if draft:
             suggestions.append(SuggestedActionOut(
-                kind="plan_drafted",
+                kind="plan_drafted", agent="planning", status="done",
                 title=f"Draft workforce plan ready for {job.get('title', 'this role')}",
                 body=draft.justification,
                 payload={"job_id": state["job_id"], "draft": draft.model_dump()},
             ))
 
-    # 3. Headhunter sourcing (specialist sub-graph) — LLM-routed, OR forced this
-    #    run if step 0 just auto-assigned a headhunter (don't make a freshly
-    #    assigned job wait for the next sweep). Deterministic guardrail mirrors
-    #    the pattern above: only ever runs against headhunters that are
-    #    actually active and assigned, regardless of what the LLM said.
-    if routing.run_headhunter_sourcing or just_assigned:
+    # 3. Headhunter sourcing (specialist sub-graph) — runs whenever the job is
+    #    in the Open/Active Hiring phase (spec: headhunters actively source
+    #    the entire time a job is open, not just when an LLM judgment call
+    #    happens to favor it that sweep), OR when LLM-routed for any other
+    #    phase, OR forced this run if step 0 just auto-assigned a headhunter
+    #    (don't make a freshly assigned job wait for the next sweep).
+    #    Deterministic guardrail mirrors the pattern above: only ever runs
+    #    against headhunters that are actually active and assigned, regardless
+    #    of what the LLM said.
+    sourcing_phase_active = job.get("pipeline_phase") == "open-hiring"
+    if routing.run_headhunter_sourcing or just_assigned or sourcing_phase_active:
         active_ids = [
             h["id"] for h in (ctx.get("headhunters") or []) if h.get("status") == "Active"
         ]
@@ -184,7 +167,7 @@ async def orchestrate(state: HRSupervisorState) -> dict:
                 sourced_total += len(hh_result.get("sourced_rows") or [])
             if sourced_total:
                 suggestions.append(SuggestedActionOut(
-                    kind="sourcing_run",
+                    kind="sourcing_run", agent="headhunter-sourcing", status="done",
                     title=f"Sourced {sourced_total} new candidate{'s' if sourced_total != 1 else ''} for {job.get('title', 'this role')}",
                     body="Your headhunters scanned the talent pool — review the new candidates once they're scored.",
                     payload={"job_id": state["job_id"]},
@@ -200,7 +183,7 @@ async def orchestrate(state: HRSupervisorState) -> dict:
         )
         if auto_advanced.get("advanced"):
             suggestions.append(SuggestedActionOut(
-                kind="phase_advanced",
+                kind="phase_advanced", agent="hr-supervisor", status="done",
                 title=f"Advanced to {auto_advanced['to_phase']}",
                 body="Auto-advanced because the phase target was met.",
                 payload={"job_id": state["job_id"], "to_phase": auto_advanced["to_phase"]},
