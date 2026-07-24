@@ -32,9 +32,19 @@ console_handler.setLevel(LOG_LEVEL)
 console_handler.setFormatter(formatter)
 root_logger.addHandler(console_handler)
 
-# File handler (optional - logs to file on disk)
+# File handler (optional - logs to file on disk).
+# RotatingFileHandler caps total disk usage at maxBytes * (backupCount + 1)
+# (50MB here) instead of growing forever — this app logs full request/
+# response bodies and tracebacks on every call, which fills the VM's disk
+# in days without rotation.
 try:
-    file_handler = logging.FileHandler("/opt/career-ops-backend/app.log")
+    from logging.handlers import RotatingFileHandler
+
+    file_handler = RotatingFileHandler(
+        "/opt/career-ops-backend/app.log",
+        maxBytes=10 * 1024 * 1024,  # 10MB per file
+        backupCount=4,  # app.log + 4 rotated backups = 50MB max
+    )
     file_handler.setLevel(LOG_LEVEL)
     file_handler.setFormatter(formatter)
     root_logger.addHandler(file_handler)
