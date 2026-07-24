@@ -42,6 +42,16 @@ jobs:
 
           ssh -i ~/.ssh/gcp_key -o StrictHostKeyChecking=no github-actions@$VM_IP "
             set -e
+
+            # Fail fast with a clear message instead of a cryptic mid-script
+            # 'No space left on device' from whichever command writes next.
+            avail_kb=\$(df -Pk / | awk 'NR==2 {print \$4}')
+            if [ \"\$avail_kb\" -lt 524288 ]; then
+              echo 'ERROR: less than 512MB free on VM root disk, aborting deploy.'
+              df -h /
+              exit 1
+            fi
+
             cd /opt/career-ops-backend
             chmod 600 vertex-ai-agent-key.json
             touch .env
