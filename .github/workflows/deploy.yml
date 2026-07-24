@@ -30,16 +30,17 @@ jobs:
           chmod 600 ~/.ssh/gcp_key
           ssh-keyscan -H 34.132.193.54 >> ~/.ssh/known_hosts
 
-      - name: Sync Vertex AI credentials
+      - name: Sync Vertex AI & Scraper credentials
         env:
           VM_IP: ${{ steps.get-ip.outputs.vm_ip }}
           VERTEX_AI_KEY_JSON: ${{ secrets.VERTEX_AI_KEY_JSON }}
+          SCRAPER_API_KEY: ${{ secrets.SCRAPER_API_KEY }}
         run: |
           echo "$VERTEX_AI_KEY_JSON" > /tmp/vertex-ai-agent-key.json
           scp -i ~/.ssh/gcp_key -o StrictHostKeyChecking=no /tmp/vertex-ai-agent-key.json github-actions@$VM_IP:/opt/career-ops-backend/vertex-ai-agent-key.json
           rm -f /tmp/vertex-ai-agent-key.json
 
-          ssh -i ~/.ssh/gcp_key -o StrictHostKeyChecking=no github-actions@$VM_IP << 'ENDSSH'
+          ssh -i ~/.ssh/gcp_key -o StrictHostKeyChecking=no github-actions@$VM_IP << ENDSSH
             set -e
             cd /opt/career-ops-backend
             chmod 600 vertex-ai-agent-key.json
@@ -67,7 +68,16 @@ jobs:
             else
               echo 'MODEL_NAME=google_vertexai:gemini-3.5-flash' >> .env
             fi
-          ENDSSH
+
+            if [ -n "$SCRAPER_API_KEY" ]; then
+              if grep -q '^SCRAPER_API_KEY=' .env; then
+                sed -i "s|^SCRAPER_API_KEY=.*|SCRAPER_API_KEY=$SCRAPER_API_KEY|" .env
+              else
+                echo "SCRAPER_API_KEY=$SCRAPER_API_KEY" >> .env
+              fi
+            fi
+ENDSSH
+
 
       - name: Deploy to VM
         env:

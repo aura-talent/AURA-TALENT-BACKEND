@@ -8,6 +8,10 @@ frontend should ask the user to paste the JD text instead.
 
 import httpx
 from bs4 import BeautifulSoup
+from urllib.parse import quote
+
+from ..config import settings
+from ..logging_config import logger
 
 _HEADERS = {
     "User-Agent": (
@@ -33,26 +37,64 @@ class JDFetchError(Exception):
     pass
 
 
+async def _fetch_html(url: str, proxy_url: str | None = None) -> str:
+    async with httpx.AsyncClient(
+        timeout=25, follow_redirects=True, headers=_HEADERS, proxy=proxy_url
+    ) as client:
+        resp = await client.get(url)
+        resp.raise_for_status()
+        return resp.text
+
+
 async def fetch_jd_text(url: str) -> str:
     if not url.startswith("https://"):
         raise JDFetchError("Only https:// URLs are allowed")
-    try:
-        async with httpx.AsyncClient(
-            timeout=15, follow_redirects=True, headers=_HEADERS
-        ) as client:
-            resp = await client.get(url)
-            resp.raise_for_status()
-    except httpx.HTTPStatusError as e:
-        if e.response.status_code in (403, 401):
-            raise JDFetchError(
-                "Access blocked (403 Forbidden) by the target job portal — "
-                "this company page blocks automated scraping. Please paste the job description text directly."
-            ) from e
-        raise JDFetchError(f"Could not fetch URL: {e}") from e
-    except httpx.HTTPError as e:
-        raise JDFetchError(f"Could not fetch URL: {e}") from e
 
-    soup = BeautifulSoup(resp.text, "html.parser")
+    html: str | None = None
+
+    # Step 1: Direct fetch (fast & free)
+    try:
+        html = await _fetch_html(url)
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code not in (403, 401, 429):
+            raise JDFetchError(f"Could not fetch URL: {e}") from e
+        logger.warning(
+            f"⚠️  Direct fetch returned {e.response.status_code} for {url} — attempting proxy fallback..."
+        )
+    except httpx.HTTPError as e:
+        logger.warning(
+            f"⚠️  Direct fetch failed ({e}) for {url} — attempting proxy fallback..."
+        )
+
+    # Step 2: Proxy Fallback if direct fetch was blocked (e.g. 403 Forbidden)
+    if html is None:
+        if settings.scraper_api_key:
+            # ScraperAPI integration (1,000 free requests/month)
+            proxy_endpoint = (
+                f"http://api.scraperapi.com?api_key={settings.scraper_api_key}&url={quote(url)}"
+            )
+            try:
+                html = await _fetch_html(proxy_endpoint)
+                logger.info(f"✅ Successfully fetched {url} via ScraperAPI proxy")
+            except Exception as e:
+                logger.error(f"❌ ScraperAPI proxy fetch failed: {e}")
+        elif settings.scraper_proxy_url:
+            # Custom proxy integration
+            try:
+                html = await _fetch_html(url, proxy_url=settings.scraper_proxy_url)
+                logger.info(f"✅ Successfully fetched {url} via custom proxy")
+            except Exception as e:
+                logger.error(f"❌ Custom proxy fetch failed: {e}")
+
+    # Step 3: If still no HTML, raise candidate-friendly 403 error
+    if html is None:
+        raise JDFetchError(
+            "Access blocked (403 Forbidden) by the target job portal — "
+            "this company page blocks automated cloud scrapers. Please paste the job description text directly."
+        )
+
+    # Step 4: Parse HTML into clean text
+    soup = BeautifulSoup(html, "html.parser")
     for tag in soup(["script", "style", "nav", "footer", "header", "noscript"]):
         tag.decompose()
     text = "\n".join(
@@ -64,4 +106,5 @@ async def fetch_jd_text(url: str) -> str:
             "is closed. Paste the job description text directly instead."
         )
     return text[:30000]
+
 
