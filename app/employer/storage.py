@@ -617,17 +617,36 @@ def replace_open_suggestions(
 
 # ── chat (0003) ───────────────────────────────────────────────────────────
 
-def get_or_create_chat_thread(employer_id: str) -> dict:
-    """One standing conversation per employer today — the side panel doesn't
-    expose thread management, so reuse the most recent thread if one exists."""
+def create_chat_thread(employer_id: str, title: str | None = None) -> dict:
+    fields = {"employer_id": employer_id}
+    if title:
+        fields["title"] = title
+    res = supabase.table("chat_threads").insert(fields).execute()
+    return res.data[0]
+
+
+def list_chat_threads(employer_id: str) -> list[dict]:
+    """Every session for this employer, most-recently-active first."""
     res = (
         supabase.table("chat_threads").select("*")
-        .eq("employer_id", employer_id).order("created_at", desc=True).limit(1).execute()
+        .eq("employer_id", employer_id).order("updated_at", desc=True).execute()
     )
-    if res.data:
-        return res.data[0]
-    created = supabase.table("chat_threads").insert({"employer_id": employer_id}).execute()
-    return created.data[0]
+    return res.data or []
+
+
+def get_chat_thread(thread_id: str) -> dict | None:
+    return _one(supabase.table("chat_threads").select("*").eq("id", thread_id).execute())
+
+
+def update_chat_thread(thread_id: str, fields: dict) -> dict | None:
+    fields = {**fields, "updated_at": _now()}
+    res = supabase.table("chat_threads").update(fields).eq("id", thread_id).execute()
+    return _one(res)
+
+
+def delete_chat_thread(thread_id: str) -> None:
+    supabase.table("chat_messages").delete().eq("thread_id", thread_id).execute()
+    supabase.table("chat_threads").delete().eq("id", thread_id).execute()
 
 
 def list_chat_messages(thread_id: str) -> list[dict]:

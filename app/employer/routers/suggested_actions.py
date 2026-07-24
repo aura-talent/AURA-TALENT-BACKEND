@@ -68,7 +68,7 @@ async def execute_action(
         candidate_user_id, job_id = payload.get("candidate_user_id"), payload.get("job_id")
         if not subject or not body or not candidate_user_id:
             raise HTTPException(422, "This suggestion has no ready-to-send draft yet")
-        row = comms_service.send_email(
+        row = await comms_service.send_email(
             employer_id=employer_id, candidate_user_id=candidate_user_id,
             subject=subject, body=body, job_id=job_id,
         )

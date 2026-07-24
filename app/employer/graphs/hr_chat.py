@@ -29,6 +29,23 @@ from .. import storage
 from ..prompts import HR_CHAT_SYSTEM
 from ..services.context import build_candidate_context, build_employer_context, build_job_context
 
+def _default_phase_targets(phase_ids: list[str]) -> list[dict]:
+    """Mirrors the frontend's defaultTargetFor (pipelineConfig.ts) so a
+    chat-created job gets the same sensible per-phase targets a human would
+    get from the job editor — without this, every phase_targets-less phase
+    is a manual-only gate (see pipeline_engine.phase_progress_for) and an
+    'auto' job can never actually advance past its first phase."""
+    defaults = {
+        "open-hiring": {"metric": "applicants", "targetCount": 5},
+        "evaluation": {"metric": "evaluated", "targetCount": 3},
+        "offer-decision": {"metric": "hires", "targetCount": 1},
+    }
+    return [
+        {"phaseId": pid, **defaults.get(pid, {"metric": "manual", "targetCount": 0})}
+        for pid in phase_ids
+    ]
+
+
 _EMAIL_KIND_TO_SUGGESTION_KIND = {
     "interview_invite": "send_interview_invite",
     "follow_up": "follow_up",
@@ -85,16 +102,32 @@ def build_hr_chat_agent(employer_id: str):
             "interview_questions": questions,
             "mock_interview_enabled": bool(questions),
             "pipeline_phase": phase_ids[0] if phase_ids else None,
+            "phase_targets": _default_phase_targets(phase_ids),
             "status": "Active" if full_automation else "Draft",
             "automation_level": "auto" if full_automation else "manual",
         }
         fields = {k: v for k, v in fields.items() if v is not None}
         job = storage.create_job(fields)
         if full_automation:
+            # The first phase ("planning") is always a manual-only gate — it
+            # has no measurable target by design, the same as jobs created
+            # through the editor (see _default_phase_targets). Asking Aura
+            # for full automation IS the human approval that gate exists to
+            # capture, so advance past it once, deterministically (not an
+            # LLM decision) — otherwise an "auto" job would sit idle in
+            # planning forever, since the scheduler's auto-advance always
+            # requires the target to be met and this one never can be.
+            advanced = pipeline_engine.advance_phase(
+                job, trigger="chat-agent", require_target=False,
+                note="Full automation requested via Aura chat.",
+            )
+            if advanced["advanced"]:
+                job = advanced["job"]
             return (
-                f'Created "{job["title"]}" — Active with full automation (auto). '
-                "Aura's pipeline agents will now source, score, and draft actions for "
-                "it automatically; you still confirm any candidate contact before it sends."
+                f'Created "{job["title"]}" — Active with full automation (auto), now in the '
+                f'**{job["pipeline_phase"]}** phase. Aura\'s pipeline agents will source, score, '
+                "and draft actions for it automatically as targets are met; you still confirm "
+                "any candidate contact before it sends."
             )
         return (
             f'Created "{job["title"]}" as a manual Draft. Review and publish it from '

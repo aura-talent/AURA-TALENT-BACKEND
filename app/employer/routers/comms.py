@@ -51,7 +51,7 @@ async def send_message(body: CommsSend):
         if not job or job["employer_id"] != body.employer_id:
             raise HTTPException(404, "Job not found")
 
-    row = comms_service.send_email(
+    row = await comms_service.send_email(
         employer_id=body.employer_id,
         candidate_user_id=body.candidate_user_id,
         subject=body.subject,

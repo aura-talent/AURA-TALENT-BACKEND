@@ -165,6 +165,11 @@ class ChatMessageIn(BaseModel):
     content: str
 
 
+class ChatThreadCreate(BaseModel):
+    employer_id: str
+    title: Optional[str] = None
+
+
 class ChatMessageOut(BaseModel):
     id: str
     thread_id: str
