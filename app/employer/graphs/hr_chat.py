@@ -29,23 +29,6 @@ from .. import storage
 from ..prompts import HR_CHAT_SYSTEM
 from ..services.context import build_candidate_context, build_employer_context, build_job_context
 
-def _default_phase_targets(phase_ids: list[str]) -> list[dict]:
-    """Mirrors the frontend's defaultTargetFor (pipelineConfig.ts) so a
-    chat-created job gets the same sensible per-phase targets a human would
-    get from the job editor — without this, every phase_targets-less phase
-    is a manual-only gate (see pipeline_engine.phase_progress_for) and an
-    'auto' job can never actually advance past its first phase."""
-    defaults = {
-        "open-hiring": {"metric": "applicants", "targetCount": 5},
-        "evaluation": {"metric": "evaluated", "targetCount": 3},
-        "offer-decision": {"metric": "hires", "targetCount": 1},
-    }
-    return [
-        {"phaseId": pid, **defaults.get(pid, {"metric": "manual", "targetCount": 0})}
-        for pid in phase_ids
-    ]
-
-
 _EMAIL_KIND_TO_SUGGESTION_KIND = {
     "interview_invite": "send_interview_invite",
     "follow_up": "follow_up",
@@ -102,16 +85,18 @@ def build_hr_chat_agent(employer_id: str):
             "interview_questions": questions,
             "mock_interview_enabled": bool(questions),
             "pipeline_phase": phase_ids[0] if phase_ids else None,
-            "phase_targets": _default_phase_targets(phase_ids),
+            "phase_targets": pipeline_engine.default_phase_targets(phase_ids),
             "status": "Active" if full_automation else "Draft",
             "automation_level": "auto" if full_automation else "manual",
         }
         fields = {k: v for k, v in fields.items() if v is not None}
         job = storage.create_job(fields)
+        from ..services.job_creation import bootstrap_new_job
+        job = await bootstrap_new_job(job, employer_id)
         if full_automation:
             # The first phase ("planning") is always a manual-only gate — it
             # has no measurable target by design, the same as jobs created
-            # through the editor (see _default_phase_targets). Asking Aura
+            # through the editor (see pipeline_engine.default_phase_targets). Asking Aura
             # for full automation IS the human approval that gate exists to
             # capture, so advance past it once, deterministically (not an
             # LLM decision) — otherwise an "auto" job would sit idle in
@@ -125,13 +110,15 @@ def build_hr_chat_agent(employer_id: str):
                 job = advanced["job"]
             return (
                 f'Created "{job["title"]}" — Active with full automation (auto), now in the '
-                f'**{job["pipeline_phase"]}** phase. Aura\'s pipeline agents will source, score, '
-                "and draft actions for it automatically as targets are met; you still confirm "
-                "any candidate contact before it sends."
+                f'**{job["pipeline_phase"]}** phase. Aura drafted a starter workforce plan and, '
+                "if a matching headhunter was available, assigned one already. Aura's pipeline "
+                "agents will source, score, and draft actions for it automatically as targets "
+                "are met; you still confirm any candidate contact before it sends."
             )
         return (
-            f'Created "{job["title"]}" as a manual Draft. Review and publish it from '
-            "your Job listings when you're ready — nothing runs automatically until then."
+            f'Created "{job["title"]}" as a manual Draft, with a starter workforce plan already '
+            "drafted. Review and publish it from your Job listings when you're ready — nothing "
+            "else runs automatically until then."
         )
 
     @tool
@@ -178,6 +165,7 @@ def build_hr_chat_agent(employer_id: str):
                 "draft_subject": draft.subject, "draft_body": draft.body,
             },
             "source": "chat-agent",
+            "agent": "communication",
         })
         proposed_action_ids.append(action["id"])
         return f'Drafted "{draft.subject}" — staged for your review, confirm it below to send.'

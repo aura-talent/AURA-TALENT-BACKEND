@@ -8,6 +8,7 @@ from . import (
     headhunters,
     job_plans,
     jobs,
+    notifications,
     offers,
     pipeline,
     profile,
@@ -26,3 +27,4 @@ router.include_router(offers.router)
 router.include_router(suggested_actions.router)
 router.include_router(comms.router)
 router.include_router(chat.router)
+router.include_router(notifications.router)

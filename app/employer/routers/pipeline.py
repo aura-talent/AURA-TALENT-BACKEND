@@ -4,7 +4,7 @@ from ...auth import verify_user_role
 from ...logging_config import logger
 from ...services.events import emit
 from .. import storage
-from ..schemas import ApplicationCreate, StageMove
+from ..schemas import ApplicationCreate, SelectForOffer, StageMove
 from ..services.wlc import trigger_wlc_evaluation
 
 router = APIRouter(prefix="/applications", tags=["employer:pipeline"])
@@ -130,6 +130,28 @@ async def move_stage(application_id: str, body: StageMove, background_tasks: Bac
         note=body.note,
     )
 
+    return updated
+
+
+@router.post("/{application_id}/select-for-offer")
+async def select_for_offer(application_id: str, body: SelectForOffer):
+    """Manually mark/unmark an application as selected for offer — works for
+    any automation_level. For 'auto' jobs this happens automatically (see
+    graphs/candidate_management.py's auto-shortlist step); this endpoint is
+    what lets a human do the same thing on a manual job, or override an auto
+    job's pick. The Offer Console only shows selected_for_offer=true rows."""
+    verify_user_role(body.employer_id, ["employer"])
+    application = storage.get_application(application_id)
+    if not application:
+        raise HTTPException(404, "Application not found")
+    job = storage.get_job(application["job_id"])
+    if not job or job["employer_id"] != body.employer_id:
+        raise HTTPException(403, "Application belongs to another employer's job")
+
+    updated = storage.set_selected_for_offer(application_id, body.selected)
+    logger.info(
+        f"{'⭐' if body.selected else '🚫'} select-for-offer {application_id}: {body.selected}"
+    )
     return updated
 
 

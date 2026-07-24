@@ -4,7 +4,7 @@ from ...auth import verify_user_role
 from ...logging_config import logger
 from .. import storage
 from ..schemas import JobCreate, JobDraftIn, JobUpdate, PhaseAdvance
-from ..services import pipeline_engine
+from ..services import job_creation, pipeline_engine
 
 router = APIRouter(prefix="/jobs", tags=["employer:jobs"])
 
@@ -30,8 +30,18 @@ def _require_owned_job(job_id: str, employer_id: str) -> dict:
     return job
 
 
-def _with_relations(job: dict, stats: dict | None = None) -> dict:
+def _with_relations(
+    job: dict, stats: dict | None = None, active_hh_ids: list[str] | None = None,
+) -> dict:
     job["headhunter_ids"] = storage.list_job_headhunter_ids(job["id"])
+    # Active-only subset — what hr_supervisor.py's orchestrate() step 3 will
+    # actually source through, unlike headhunter_ids above (which includes
+    # Draft/Paused assignments). Lets the frontend show "Headhunters are
+    # sourcing" only when that's actually true.
+    job["active_headhunter_ids"] = (
+        active_hh_ids if active_hh_ids is not None
+        else storage.list_active_headhunter_ids_by_job([job["id"]]).get(job["id"], [])
+    )
     if stats is not None:
         job["stats"] = stats
     return job
@@ -40,9 +50,18 @@ def _with_relations(job: dict, stats: dict | None = None) -> dict:
 @router.post("")
 async def create_job(body: JobCreate):
     verify_user_role(body.employer_id, ["employer"])
-    job = storage.create_job(_job_fields(body))
+    fields = _job_fields(body)
+    # Seed sensible defaults when the caller (e.g. the Job Editor) didn't
+    # supply them — without this, an 'auto' job created here has every phase
+    # reading as an unmeasurable manual gate forever (phase_targets stays
+    # empty), since only the chat create_job tool used to seed these.
+    phase_ids = pipeline_engine.employer_phase_ids(body.employer_id)
+    fields.setdefault("pipeline_phase", phase_ids[0] if phase_ids else None)
+    fields.setdefault("phase_targets", pipeline_engine.default_phase_targets(phase_ids))
+    job = storage.create_job(fields)
     if body.headhunter_ids:
         storage.set_job_headhunters(job["id"], body.headhunter_ids)
+    job = await job_creation.bootstrap_new_job(job, body.employer_id)
     logger.info(f"💼 Job created: {job['id']} ({job['title']}) by {body.employer_id}")
     return _with_relations(job)
 
@@ -73,7 +92,11 @@ async def list_jobs(employer_id: str):
     verify_user_role(employer_id, ["employer"])
     jobs = storage.list_jobs(employer_id)
     stats = storage.get_job_stats([j["id"] for j in jobs])
-    return [_with_relations(j, stats.get(j["id"], {})) for j in jobs]
+    active_hh = storage.list_active_headhunter_ids_by_job([j["id"] for j in jobs])
+    return [
+        _with_relations(j, stats.get(j["id"], {}), active_hh.get(j["id"], []))
+        for j in jobs
+    ]
 
 
 @router.get("/{job_id}")

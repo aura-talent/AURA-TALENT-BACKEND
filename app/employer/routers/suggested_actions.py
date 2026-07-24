@@ -83,6 +83,8 @@ async def execute_action(
         job_id, candidate_user_id = payload.get("job_id"), payload.get("candidate_user_id")
         if not job_id or not candidate_user_id:
             raise HTTPException(422, "Missing job_id/candidate_user_id")
+        if not storage.get_candidate_resume_md(candidate_user_id):
+            raise HTTPException(422, "This candidate has no resume on file yet — scoring can't run.")
         background_tasks.add_task(
             trigger_wlc_evaluation, job_id=job_id, candidate_user_id=candidate_user_id,
         )
