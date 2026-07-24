@@ -96,7 +96,15 @@ RESUME_PARSE_SYSTEM = """\
 Convert the candidate's raw resume content into clean, well-structured
 markdown with standard sections (Summary, Experience, Projects, Education,
 Skills). Preserve every fact, metric, date, and link exactly — never invent,
-embellish, or drop content. Also extract a short structured profile.
+embellish, or drop content. Also extract a short structured profile: full
+name, headline, years of experience, top skills, and target role
+archetypes, plus contact details straight from the resume's own header if
+present — phone number, the candidate's current city/region (not a
+school's or employer's address), LinkedIn URL, and a personal
+website/portfolio/GitHub URL. The portfolio/website field is never the
+email address and never the LinkedIn URL — only a distinct site link if
+one is actually written on the resume. Leave a field blank rather than
+guessing or reusing another field's value.
 """
 
 RESUME_SUGGEST_SYSTEM = """\

@@ -294,6 +294,23 @@ class ParsedResume(BaseModel):
     years_of_experience: Optional[float] = None
     top_skills: list[str] = []
     target_archetypes: list[str] = []
+    phone: Optional[str] = Field(
+        default=None, description="Contact phone number, exactly as written, if present in the resume header"
+    )
+    location: Optional[str] = Field(
+        default=None,
+        description="Candidate's own current city/region from the contact header — not a school's or employer's address",
+    )
+    linkedin_url: Optional[str] = Field(
+        default=None, description="LinkedIn profile URL, if present in the resume header"
+    )
+    portfolio_url: Optional[str] = Field(
+        default=None,
+        description=(
+            "Personal website, portfolio, or GitHub URL, only if one is literally present in the "
+            "resume header. Never the email address, and never LinkedIn. Null if no such link exists."
+        ),
+    )
 
 
 class TailoredResume(BaseModel):
