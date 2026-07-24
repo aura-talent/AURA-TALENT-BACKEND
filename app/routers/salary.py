@@ -16,9 +16,15 @@ async def self_worth(body: SelfWorthIn):
     resume = storage.get_resume(body.user_id)
     if not resume:
         raise HTTPException(404, "Upload a resume first")
-    logger.info(f"💵 Self-worth estimate for user: {body.user_id} (loc={body.location})")
+    logger.info(
+        f"💵 Self-worth estimate for user: {body.user_id} "
+        f"(loc={body.location}, uni={body.university_id}, degree={body.degree_field})"
+    )
     try:
-        return await estimate_self_worth(resume, body.location, body.currency)
+        return await estimate_self_worth(
+            resume, body.location, body.currency,
+            body.university_id, body.degree_field,
+        )
     except Exception as e:
         log_error(e, context="self_worth")
         raise HTTPException(500, "Could not estimate worth — try again.")

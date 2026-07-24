@@ -165,6 +165,9 @@ class SelfWorthIn(BaseModel):
     user_id: str
     location: Optional[str] = Field(default=None, description="User's target market, e.g. 'Remote', 'Singapore'")
     currency: Optional[str] = Field(default=None, description="Override currency, ISO 4217")
+    university_id: Optional[str] = Field(default=None, description="Employability-dataset university id (SG/MY)")
+    degree_field: Optional[str] = Field(default=None, description="Degree/field within that university")
+    country: Optional[str] = Field(default=None, description="SG or MY — for logging/context")
 
 
 class SelfWorthOut(BaseModel):
