@@ -14,7 +14,8 @@ load_dotenv(override=True)
 
 
 class Settings(BaseSettings):
-    model_name: str = "anthropic:claude-sonnet-4-6"
+    model_name: str = "google_genai:gemini-3.5-flash"
+
     backend_api_key: str = "change-me"
     career_ops_root: Path = Path(__file__).resolve().parents[2]
     database_path: Path = Path(__file__).resolve().parents[1] / "career_ops.db"
