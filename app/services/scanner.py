@@ -12,6 +12,7 @@ import re
 import httpx
 import yaml
 
+from pathlib import Path
 from ..config import settings
 
 _TIMEOUT = 10
@@ -19,11 +20,22 @@ _CONCURRENCY = 10
 
 
 def load_portals() -> dict:
-    path = settings.career_ops_root / "portals.yml"
-    if not path.exists():
-        path = settings.career_ops_root / "templates" / "portals.example.yml"
-    with open(path) as f:
-        return yaml.safe_load(f)
+    candidates = [
+        settings.career_ops_root / "portals.yml",
+        Path(__file__).resolve().parents[2] / "portals.yml",
+        Path(__file__).resolve().parents[1] / "portals.yml",
+        Path("/home/charleshor/career-ops/portals.yml"),
+        Path("/opt/career-ops-backend/portals.yml"),
+        settings.career_ops_root / "templates" / "portals.example.yml",
+        Path(__file__).resolve().parents[2] / "templates" / "portals.example.yml",
+        Path(__file__).resolve().parents[1] / "templates" / "portals.example.yml",
+    ]
+    for p in candidates:
+        if p.exists():
+            with open(p) as f:
+                return yaml.safe_load(f)
+    raise FileNotFoundError("Could not locate portals.yml")
+
 
 
 # ── Providers (mirror providers/greenhouse.mjs, ashby.mjs, lever.mjs) ──
@@ -119,8 +131,12 @@ def _passes_location_filter(location: str, cfg: dict | None) -> bool:
 async def scan(companies: list[str] | None = None,
                title_keywords: list[str] | None = None,
                location_keywords: list[str] | None = None) -> dict:
-    portals = load_portals()
+    try:
+        portals = load_portals()
+    except Exception as e:
+        return {"total": 0, "jobs": [], "errors": [f"Portal scan configuration error: {e}"]}
     tf = portals.get("title_filter") or {}
+
     positive = title_keywords or tf.get("positive") or []
     negative = tf.get("negative") or []
     
