@@ -2,6 +2,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException
 
 from ...auth import verify_user_role
 from ...logging_config import logger
+from ...services.events import emit
 from .. import storage
 from ..schemas import ApplicationCreate, StageMove
 from ..services.wlc import trigger_wlc_evaluation
@@ -43,6 +44,15 @@ async def create_application(body: ApplicationCreate, background_tasks: Backgrou
         source="applied",
     )
 
+    # Notify the candidate their application was received
+    background_tasks.add_task(
+        emit,
+        "application.submitted",
+        application_id=app_row["id"],
+        job_id=body.job_id,
+        candidate_user_id=body.candidate_user_id,
+    )
+
     return app_row
 
 
@@ -55,8 +65,36 @@ async def list_applications(job_id: str, employer_id: str):
     return storage.list_applications_for_job(job_id)
 
 
+@router.get("/{application_id}")
+async def get_application_detail(application_id: str, employer_id: str, background_tasks: BackgroundTasks):
+    """Employer opens one application's details. Verifies ownership, and
+    the first time this is called for an application, stamps
+    employer_viewed_at and notifies the candidate that their resume is
+    being reviewed (fired at most once per application)."""
+    verify_user_role(employer_id, ["employer"])
+    application = storage.get_application(application_id)
+    if not application:
+        raise HTTPException(404, "Application not found")
+    job = storage.get_job(application["job_id"])
+    if not job or job["employer_id"] != employer_id:
+        raise HTTPException(403, "Application belongs to another employer's job")
+
+    first_view = storage.mark_application_viewed(application_id)
+    if first_view:
+        logger.info(f"👀 Application {application_id} opened by employer {employer_id}")
+        background_tasks.add_task(
+            emit,
+            "application.opened",
+            application_id=application_id,
+            job_id=application["job_id"],
+            candidate_user_id=application["candidate_user_id"],
+        )
+
+    return application
+
+
 @router.post("/{application_id}/stage")
-async def move_stage(application_id: str, body: StageMove):
+async def move_stage(application_id: str, body: StageMove, background_tasks: BackgroundTasks):
     """Move an application to another stage. Validates against the owning
     job's configured stage list, snapshots is_rejected from that stage's
     config, and appends a job_application_stage_events audit row."""
@@ -80,6 +118,18 @@ async def move_stage(application_id: str, body: StageMove):
         f"🪜 Stage move {application_id}: {application['stage']} → {body.to_stage}"
         f"{' (rejected)' if is_rejected else ''}"
     )
+
+    background_tasks.add_task(
+        emit,
+        "application.stage_changed",
+        application_id=application_id,
+        job_id=application["job_id"],
+        candidate_user_id=application["candidate_user_id"],
+        to_stage=body.to_stage,
+        is_rejected=is_rejected,
+        note=body.note,
+    )
+
     return updated
 
 

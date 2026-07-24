@@ -12,6 +12,7 @@ from .employer import router as employer_router
 from .employer.scheduler import run_forever as run_auto_job_scheduler
 from .middleware import LoggingMiddleware
 from .logging_config import logger
+from .services import notifications  # noqa: F401 — registers event->email handlers
 
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 

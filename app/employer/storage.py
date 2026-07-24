@@ -62,6 +62,18 @@ def delete_job(job_id: str) -> None:
     supabase.table("jobs").delete().eq("id", job_id).execute()
 
 
+def list_active_jobs() -> list[dict]:
+    """All Active jobs across every employer — the candidate-facing pool
+    used for job recommendations (app/routers/jobs.py)."""
+    res = (
+        supabase.table("jobs").select("*")
+        .eq("status", "Active")
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return res.data or []
+
+
 def get_job_stats(job_ids: list[str]) -> dict[str, dict]:
     """job_stats view rows keyed by job_id."""
     if not job_ids:
@@ -197,6 +209,25 @@ def move_application_stage(
         "note": note,
     }).execute()
     return res.data[0]
+
+
+def mark_application_viewed(application_id: str) -> bool:
+    """Stamp employer_viewed_at the first time an employer opens this
+    application's details. Returns True only on that first transition
+    (null -> now), so callers can fire a "your application is being
+    reviewed" notification exactly once instead of on every GET.
+
+    Requires an `employer_viewed_at timestamptz` column on job_applications
+    — see docs/migrations for the ALTER TABLE statement.
+    """
+    res = (
+        supabase.table("job_applications")
+        .update({"employer_viewed_at": _now()})
+        .eq("id", application_id)
+        .is_("employer_viewed_at", "null")
+        .execute()
+    )
+    return bool(res.data)
 
 
 def list_stage_events(application_id: str) -> list[dict]:

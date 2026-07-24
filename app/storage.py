@@ -88,7 +88,8 @@ def save_evaluation(user_id: str, *, company: str, role: str, jd_url: str | None
                     archetype: str, score: float, scores: dict,
                     recommendation: str, legitimacy: dict,
                     report_markdown: str, keywords: list[str],
-                    salary: dict | None = None) -> int:
+                    salary: dict | None = None,
+                    insights: dict | None = None) -> int:
     # Check if there is an existing evaluation for user_id, company, and role
     res = supabase.table("evaluations")\
         .select("id")\
@@ -112,7 +113,9 @@ def save_evaluation(user_id: str, *, company: str, role: str, jd_url: str | None
         "keywords_json": json.dumps(keywords) if isinstance(keywords, list) else keywords,
     }
     if salary is not None:
-        data["salary_json"] = json.dumps(salary)
+        data["salary_json"] = json.dumps(salary) if isinstance(salary, dict) else salary
+    if insights is not None:
+        data["insights_json"] = json.dumps(insights) if isinstance(insights, dict) else insights
 
     existing_id = res.data[0]["id"] if res.data else None
 
@@ -124,13 +127,19 @@ def save_evaluation(user_id: str, *, company: str, role: str, jd_url: str | None
     try:
         write_res = _write(data)
     except Exception as e:
-        # Tolerate a DB that hasn't had the salary_json column added yet:
-        # retry without it so evaluations still persist.
+        # Tolerate DB missing optional JSON columns
+        changed = False
         if "salary_json" in data and "salary_json" in str(e):
             data.pop("salary_json")
+            changed = True
+        if "insights_json" in data and "insights_json" in str(e):
+            data.pop("insights_json")
+            changed = True
+        if changed:
             write_res = _write(data)
         else:
             raise
+
 
     if existing_id is not None:
         final_id = existing_id
@@ -533,6 +542,10 @@ def _eval_row(row: dict) -> dict:
     if isinstance(salary, str):
         salary = json.loads(salary) if salary else None
 
+    insights = row.get("insights_json")
+    if isinstance(insights, str):
+        insights = json.loads(insights) if insights else None
+
     return {
         "id": row["id"],
         "user_id": row["user_id"],
@@ -548,11 +561,14 @@ def _eval_row(row: dict) -> dict:
         "report_markdown": row["report_markdown"],
         "keywords": keywords,
         "salary": salary,
+        "insights": insights,
         "status": row["status"],
         "notes": row["notes"] or "",
     }
 
 
+
+# ── Employer pipeline updates ─────────────────────────────────────────
 # ── Candidate pipeline get ------------------------------------
 
 
