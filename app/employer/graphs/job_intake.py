@@ -51,7 +51,9 @@ async def draft_job(state: JobIntakeState) -> dict:
 
 async def generate_interview_questions(state: JobIntakeState) -> dict:
     draft = state["draft"]
-    n = state.get("question_count") or 5
+    n = state.get("question_count", 5)
+    if n <= 0:
+        return {"interview_questions": []}
     llm = get_llm(temperature=0.4).with_structured_output(InterviewQuestionsOut)
     result = await llm.ainvoke([
         ("system", INTERVIEW_QUESTIONS_SYSTEM),

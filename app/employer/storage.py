@@ -40,6 +40,18 @@ def list_jobs(employer_id: str) -> list[dict]:
     return res.data or []
 
 
+def list_auto_jobs() -> list[dict]:
+    """Every active job (any employer) with automation_level='auto' — the
+    scheduler's sweep list for the HR supervisor."""
+    res = (
+        supabase.table("jobs").select("*")
+        .eq("automation_level", "auto")
+        .eq("status", "Active")
+        .execute()
+    )
+    return res.data or []
+
+
 def update_job(job_id: str, fields: dict) -> dict | None:
     fields["updated_at"] = _now()
     res = supabase.table("jobs").update(fields).eq("id", job_id).execute()
@@ -485,6 +497,18 @@ def list_offers_for_job(job_id: str) -> list[dict]:
     return res.data or []
 
 
+def list_offers_for_jobs(job_ids: list[str]) -> list[dict]:
+    if not job_ids:
+        return []
+    res = (
+        supabase.table("offers").select("*")
+        .in_("job_id", job_ids)
+        .order("sent_at", desc=True)
+        .execute()
+    )
+    return res.data or []
+
+
 def update_offer_status(job_id: str, candidate_user_id: str, status: str) -> dict | None:
     fields = {"status": status, "updated_at": _now()}
     if status in ("accepted", "declined"):
@@ -566,3 +590,76 @@ def delete_open_suggested_actions(employer_id: str, source: str, job_id: str | N
     if job_id:
         q = q.eq("job_id", job_id)
     q.execute()
+
+
+def replace_open_suggestions(
+    employer_id: str, job_id: str, source: str, actions: list,
+) -> list[dict]:
+    """Replace a source's prior open suggestions for a job with fresh ones —
+    shared by the manual /run endpoint and the auto-job scheduler so a re-run
+    (human-triggered or scheduled) always replaces rather than accumulates."""
+    delete_open_suggested_actions(employer_id, source=source, job_id=job_id)
+    saved = []
+    for a in actions:
+        a = a.model_dump() if hasattr(a, "model_dump") else a
+        saved.append(create_suggested_action({
+            "employer_id": employer_id,
+            "job_id": (a.get("payload") or {}).get("job_id") or job_id,
+            "candidate_user_id": (a.get("payload") or {}).get("candidate_user_id"),
+            "kind": a["kind"],
+            "title": a["title"],
+            "body": a.get("body"),
+            "payload": a.get("payload") or {},
+            "source": source,
+        }))
+    return saved
+
+
+# ── chat (0003) ───────────────────────────────────────────────────────────
+
+def create_chat_thread(employer_id: str, title: str | None = None) -> dict:
+    fields = {"employer_id": employer_id}
+    if title:
+        fields["title"] = title
+    res = supabase.table("chat_threads").insert(fields).execute()
+    return res.data[0]
+
+
+def list_chat_threads(employer_id: str) -> list[dict]:
+    """Every session for this employer, most-recently-active first."""
+    res = (
+        supabase.table("chat_threads").select("*")
+        .eq("employer_id", employer_id).order("updated_at", desc=True).execute()
+    )
+    return res.data or []
+
+
+def get_chat_thread(thread_id: str) -> dict | None:
+    return _one(supabase.table("chat_threads").select("*").eq("id", thread_id).execute())
+
+
+def update_chat_thread(thread_id: str, fields: dict) -> dict | None:
+    fields = {**fields, "updated_at": _now()}
+    res = supabase.table("chat_threads").update(fields).eq("id", thread_id).execute()
+    return _one(res)
+
+
+def delete_chat_thread(thread_id: str) -> None:
+    supabase.table("chat_messages").delete().eq("thread_id", thread_id).execute()
+    supabase.table("chat_threads").delete().eq("id", thread_id).execute()
+
+
+def list_chat_messages(thread_id: str) -> list[dict]:
+    res = (
+        supabase.table("chat_messages").select("*")
+        .eq("thread_id", thread_id).order("created_at").execute()
+    )
+    return res.data or []
+
+
+def create_chat_message(fields: dict) -> dict:
+    res = supabase.table("chat_messages").insert(fields).execute()
+    supabase.table("chat_threads").update({"updated_at": _now()}).eq(
+        "id", fields["thread_id"],
+    ).execute()
+    return res.data[0]

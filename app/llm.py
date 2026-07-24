@@ -36,8 +36,10 @@ class LoggingCallbackHandler(BaseCallbackHandler):
 
 @lru_cache(maxsize=4)
 def get_llm(temperature: float = 0.2):
-    """Provider-agnostic model factory. API keys come from server env vars
-    (ANTHROPIC_API_KEY / OPENAI_API_KEY); users never supply keys."""
+    """Provider-agnostic model factory. Default provider is Google Vertex AI /
+    Gemini (free tier) via MODEL_NAME + GOOGLE_APPLICATION_CREDENTIALS; other
+    providers (ANTHROPIC_API_KEY / OPENAI_API_KEY) work too by changing
+    MODEL_NAME. Users never supply keys — all server env vars."""
     logger.info(f"Initializing LLM: {settings.model_name} (temp={temperature})")
     llm = init_chat_model(settings.model_name, temperature=temperature)
     logger.info(f"✅ LLM initialized: {settings.model_name}")

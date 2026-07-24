@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 
 from . import (
+    chat,
     comms,
     headhunters,
     job_plans,
@@ -24,3 +25,4 @@ router.include_router(profile.router)
 router.include_router(offers.router)
 router.include_router(suggested_actions.router)
 router.include_router(comms.router)
+router.include_router(chat.router)

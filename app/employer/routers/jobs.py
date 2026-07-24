@@ -132,37 +132,22 @@ async def job_phase_events(job_id: str, employer_id: str):
     return storage.list_job_phase_events(job_id)
 
 
-def _persist_suggestions(employer_id: str, job_id: str, source: str, actions: list) -> list[dict]:
-    """Replace a source's prior open suggestions for a job with fresh ones."""
-    storage.delete_open_suggested_actions(employer_id, source=source, job_id=job_id)
-    saved = []
-    for a in actions:
-        a = a.model_dump() if hasattr(a, "model_dump") else a
-        saved.append(storage.create_suggested_action({
-            "employer_id": employer_id,
-            "job_id": (a.get("payload") or {}).get("job_id") or job_id,
-            "candidate_user_id": (a.get("payload") or {}).get("candidate_user_id"),
-            "kind": a["kind"],
-            "title": a["title"],
-            "body": a.get("body"),
-            "payload": a.get("payload") or {},
-            "source": source,
-        }))
-    return saved
-
-
 @router.post("/{job_id}/run")
 async def run_hr_supervisor(job_id: str, employer_id: str):
     """Run the HR supervisor (agent seam) for a job: orchestrates specialists,
     composes Aura suggestions (persisted to suggested_actions), and — when the
     job is on 'auto' — advances the phase via the deterministic gate. Returns
-    the saved suggestions and any auto-advance result."""
+    the saved suggestions and any auto-advance result.
+
+    This is the same logic the scheduler (services/scheduler.py) runs
+    automatically on a timer for every 'auto' job — this endpoint is just the
+    human-triggered, single-job entry point into it."""
     _require_owned_job(job_id, employer_id)
     from ..graphs.hr_supervisor import hr_supervisor_graph
     result = await hr_supervisor_graph.ainvoke({
         "employer_id": employer_id, "job_id": job_id,
     })
-    saved = _persist_suggestions(
+    saved = storage.replace_open_suggestions(
         employer_id, job_id, "hr-supervisor", result.get("suggestions", []),
     )
     return {"suggestions": saved, "auto_advanced": result.get("auto_advanced", {"advanced": False})}

@@ -6,19 +6,16 @@ Given a job (or a freeform brief), draft a workforce plan: openings, budget,
 timeline, justification, and demand signal. Backs PlanAuraModal in the
 frontend (replacing its hardcoded setTimeout).
 
-╔═══════════════════════════════════════════════════════════════════════════╗
-║  AGENT SEAM — the node LLM logic below is a placeholder for you to build.  ║
-║  The route (POST /employer/job-plans/draft), request/response contract     ║
-║  (PlanDraftIn → PlanDraftOut), and the deterministic context are done.     ║
-║  Replace draft_plan with a get_llm().with_structured_output(PlanDraftOut)  ║
-║  call over the assembled context. Keep the output shape (PlanDraftOut).    ║
-╚═══════════════════════════════════════════════════════════════════════════╝
 """
 
+import json
 from typing import Optional, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
+from app.llm import get_llm
+
+from ..prompts import PLANNING_SYSTEM
 from ..schemas import PlanDraftOut
 
 
@@ -42,20 +39,57 @@ async def load_context(state: PlanningState) -> dict:
 
 
 async def draft_plan(state: PlanningState) -> dict:
-    # AGENT SEAM: replace with an LLM draft over state["context"] / brief.
     ctx = state.get("context") or {}
-    job = (ctx.get("job") or {})
+    job = ctx.get("job") or {}
+    plan = ctx.get("plan") or {}
+    profile = ctx.get("profile") or {}
     title = state.get("title") or job.get("title") or "the role"
-    draft = PlanDraftOut(
-        priority="Medium",
-        openings=1,
-        justification=(
-            f"Placeholder workforce-plan draft for {title}. "
-            "Replace planning.draft_plan with real LLM reasoning."
-        ),
-        demand_signal_reason=state.get("brief") or None,
+
+    job_block = "No existing job — planning from a freeform brief only."
+    if job:
+        salary = None
+        if job.get("salary_low") or job.get("salary_high"):
+            salary = (
+                f"{job.get('salary_currency', 'RM')} "
+                f"{job.get('salary_low')}-{job.get('salary_high')}"
+            )
+        job_block = json.dumps({
+            "title": job.get("title"),
+            "team": job.get("team"),
+            "location": job.get("location"),
+            "employment_type": job.get("employment_type"),
+            "salary_band": salary,
+            "description": job.get("description"),
+        }, indent=2)
+
+    plan_block = (
+        json.dumps(plan, indent=2, default=str) if plan
+        else "No existing workforce plan for this job yet."
     )
-    return {"draft": draft}
+    company_block = (
+        f"company_size: {profile['company_size']}" if profile.get("company_size")
+        else "No company-size context available."
+    )
+
+    llm = get_llm().with_structured_output(PlanDraftOut)
+    result = await llm.ainvoke([
+        ("system", PLANNING_SYSTEM),
+        ("human", f"""
+            title: {title}
+
+            job context:
+            {job_block}
+
+            existing workforce plan (if re-drafting):
+            {plan_block}
+
+            employer context:
+            {company_block}
+
+            freeform brief (if any): {state.get("brief") or "none"}
+        """),
+    ])
+    return {"draft": result}
 
 
 def build_planning_graph():

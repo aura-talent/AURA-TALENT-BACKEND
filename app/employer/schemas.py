@@ -158,6 +158,35 @@ class SuggestedActionUpdate(BaseModel):
     status: Literal["open", "done", "dismissed"]
 
 
+# ── chat (0003 — "Ask Aura" side chatbot) ────────────────────────────────
+
+class ChatMessageIn(BaseModel):
+    employer_id: str
+    content: str
+
+
+class ChatThreadCreate(BaseModel):
+    employer_id: str
+    title: Optional[str] = None
+
+
+class ChatMessageOut(BaseModel):
+    id: str
+    thread_id: str
+    role: Literal["user", "assistant", "tool"]
+    content: str
+    proposed_action_ids: list[str] = Field(default_factory=list)
+    created_at: str
+
+
+class ChatThreadOut(BaseModel):
+    id: str
+    employer_id: str
+    title: Optional[str] = None
+    created_at: str
+    updated_at: str
+
+
 # ── workforce plan draft (agent seam) ────────────────────────────────────
 
 class PlanDraftIn(BaseModel):

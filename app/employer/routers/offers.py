@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import APIRouter, HTTPException
 
 from ...auth import verify_user_role
@@ -19,10 +21,16 @@ def _require_owned_job(job_id: str, employer_id: str) -> dict:
 
 
 @router.get("")
-async def list_offers(job_id: str, employer_id: str):
-    """Offers extended for a job — replaces the aura.offersSent localStorage."""
-    _require_owned_job(job_id, employer_id)
-    return storage.list_offers_for_job(job_id)
+async def list_offers(employer_id: str, job_id: Optional[str] = None):
+    """Offers extended for a job — replaces the aura.offersSent localStorage.
+    Omit job_id to list every offer across all of the employer's jobs (powers
+    the standalone Offers hub)."""
+    if job_id:
+        _require_owned_job(job_id, employer_id)
+        return storage.list_offers_for_job(job_id)
+    verify_user_role(employer_id, ["employer"])
+    job_ids = [j["id"] for j in storage.list_jobs(employer_id)]
+    return storage.list_offers_for_jobs(job_ids)
 
 
 @router.post("")

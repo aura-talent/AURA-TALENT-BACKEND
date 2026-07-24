@@ -38,20 +38,25 @@ async def send_email(
     html: str,
     *,
     reply_to: str | None = None,
-) -> None:
+) -> dict:
     """Send one transactional email via Resend.
 
-    Never raises — logs and returns on any failure (missing config, bad
-    address, API error) so this is always safe to call from a
-    BackgroundTask without risking the request/worker.
+    Never raises — logs and returns a result dict on any failure (missing
+    config, bad address, API error) so this is always safe to call from a
+    BackgroundTask without risking the request/worker. Callers that only
+    fire-and-forget (the notification hooks below) can ignore the return
+    value; callers that persist a delivery record (employer comms) use
+    `delivered`/`error` to set it.
+
+    Returns {"delivered": bool, "id": str | None, "error": str | None}.
     """
     if not to:
         logger.warning(f"⚠️  Email skip: no recipient address (subject={subject!r})")
-        return
+        return {"delivered": False, "id": None, "error": "no recipient address"}
 
     if not _get_client_configured():
         logger.info(f"📧 [DRY RUN] Would send to {to}: {subject!r}")
-        return
+        return {"delivered": False, "id": None, "error": "RESEND_API_KEY not configured"}
 
     try:
         params: resend.Emails.SendParams = {
@@ -65,12 +70,12 @@ async def send_email(
 
         result = await resend.Emails.send_async(params)
         logger.info(f"📧 Email sent to {to}: {subject!r} (id={result.get('id')})")
+        return {"delivered": True, "id": result.get("id"), "error": None}
 
     except Exception as exc:
-        logger.error(
-            f"❌ Email send failed: to={to} subject={subject!r} "
-            f"— {type(exc).__name__}: {exc}"
-        )
+        error = f"{type(exc).__name__}: {exc}"
+        logger.error(f"❌ Email send failed: to={to} subject={subject!r} — {error}")
+        return {"delivered": False, "id": None, "error": error}
 
 
 def _button(url: str, label: str) -> str:
