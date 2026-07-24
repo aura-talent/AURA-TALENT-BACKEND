@@ -9,7 +9,23 @@ frontend should ask the user to paste the JD text instead.
 import httpx
 from bs4 import BeautifulSoup
 
-_HEADERS = {"User-Agent": "career-ops-backend/1.0 (+https://github.com/santifer/career-ops)"}
+_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/125.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Sec-Ch-Ua": '"Google Chrome";v="125", "Chromium";v="125", "Not.A/Brand";v="24"',
+    "Sec-Ch-Ua-Mobile": "?0",
+    "Sec-Ch-Ua-Platform": '"macOS"',
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "Upgrade-Insecure-Requests": "1",
+}
 MIN_JD_CHARS = 400
 
 
@@ -26,6 +42,13 @@ async def fetch_jd_text(url: str) -> str:
         ) as client:
             resp = await client.get(url)
             resp.raise_for_status()
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code in (403, 401):
+            raise JDFetchError(
+                "Access blocked (403 Forbidden) by the target job portal — "
+                "this company page blocks automated scraping. Please paste the job description text directly."
+            ) from e
+        raise JDFetchError(f"Could not fetch URL: {e}") from e
     except httpx.HTTPError as e:
         raise JDFetchError(f"Could not fetch URL: {e}") from e
 
@@ -41,3 +64,4 @@ async def fetch_jd_text(url: str) -> str:
             "is closed. Paste the job description text directly instead."
         )
     return text[:30000]
+
