@@ -5,7 +5,7 @@ from typing import TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
-from ..llm import get_llm
+from ..llm import extract_text, get_llm
 from ..prompts import COMPARE_SYSTEM
 
 
@@ -36,7 +36,7 @@ async def compare_node(state: CompareState) -> dict:
         ("system", COMPARE_SYSTEM),
         ("human", f"## Evaluated offers\n\n{body}"),
     ])
-    return {"comparison_markdown": msg.content}
+    return {"comparison_markdown": extract_text(msg)}
 
 
 def build_compare_graph():
