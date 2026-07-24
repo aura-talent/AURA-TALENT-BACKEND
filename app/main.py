@@ -10,6 +10,7 @@ from .routers import applications, career, jobs, resume, scan, users, salary, st
 from .employer import router as employer_router
 from .middleware import LoggingMiddleware
 from .logging_config import logger
+from .services import notifications  # noqa: F401 — registers event->email handlers
 
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
