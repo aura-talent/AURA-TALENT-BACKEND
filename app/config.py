@@ -31,12 +31,18 @@ class Settings(BaseSettings):
     # Adzuna has no Malaysia coverage; MY roles fall back to LLM-only.
     adzuna_country: str = "sg"
 
+    # Optional Scraping Proxy for Cloudflare/Akamai-protected job portals (ScraperAPI / ZenRows / custom proxy)
+    # ScraperAPI provides 1,000 free requests/month (https://www.scraperapi.com)
+    scraper_api_key: str = ""
+    scraper_proxy_url: str = ""
+
     # Email notifications (Resend) — https://resend.com/docs/api-reference/api-keys
     # Without resend_api_key set, EmailService logs and no-ops instead of raising,
     # so the app runs fine in dev without an account.
     resend_api_key: str = ""
     email_from: str = "Career Ops <onboarding@resend.dev>"
     frontend_base_url: str = "http://localhost:3000"
+
 
     class Config:
         env_file = ".env"
