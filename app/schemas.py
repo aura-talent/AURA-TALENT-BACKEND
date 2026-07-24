@@ -488,3 +488,73 @@ class PipelineUpdateIn(BaseModel):
     stage: str
     stage_index: int
     note: str = ""
+
+
+# ── Work-animal module ─────────────────────────────────────────────
+
+
+class TraitScores(BaseModel):
+    social: float = Field(ge=-1, le=1)
+    motion: float = Field(ge=-1, le=1)
+    visibility: float = Field(ge=-1, le=1)
+    environment: float = Field(ge=-1, le=1)
+    autonomy: float = Field(ge=-1, le=1)
+    north_star: float = Field(ge=-1, le=1)
+
+
+class JobTraitTags(BaseModel):
+    tags: list[TraitScores] = Field(description="One entry per job, same order as input")
+
+
+class AnimalCopy(BaseModel):
+    headline: str = Field(description="<= 10 words, e.g. 'You're an Owl.'")
+    why: str = Field(description="<= 40 words, cites at least one swiped job")
+    play: str = Field(description="<= 25 words, imperative, actionable")
+
+
+class AnimalCard(BaseModel):
+    id: str
+    company: str
+    title: str
+    url: str
+    location: str = ""
+    source: str = ""
+    traits: TraitScores
+
+
+class AnimalDeckIn(BaseModel):
+    user_id: str
+    count: int = Field(default=15, ge=5, le=30)
+
+
+class AnimalDeckOut(BaseModel):
+    cards: list[AnimalCard]
+
+
+class AnimalSwipe(BaseModel):
+    card: AnimalCard
+    direction: Literal["left", "right"]
+    decision_ms: int = Field(ge=0)
+    direction_changes: int = Field(default=0, ge=0)
+
+
+class AnimalSwipesIn(BaseModel):
+    user_id: str
+    swipes: list[AnimalSwipe] = Field(min_length=1)
+
+
+class AnimalHistoryEntry(BaseModel):
+    animal: str
+    at: str
+
+
+class AnimalStateOut(BaseModel):
+    animal: str
+    confidence: float
+    temperament: str
+    alignment: Optional[int] = None
+    vector: dict[str, float]
+    swipe_count: int
+    history: list[AnimalHistoryEntry] = []
+    copy: Optional[AnimalCopy] = None
+    is_new_animal: bool = False
