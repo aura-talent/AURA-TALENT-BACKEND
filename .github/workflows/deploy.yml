@@ -40,15 +40,12 @@ jobs:
           scp -i ~/.ssh/gcp_key -o StrictHostKeyChecking=no /tmp/vertex-ai-agent-key.json github-actions@$VM_IP:/opt/career-ops-backend/vertex-ai-agent-key.json
           rm -f /tmp/vertex-ai-agent-key.json
 
-          ssh -i ~/.ssh/gcp_key -o StrictHostKeyChecking=no github-actions@$VM_IP << ENDSSH
+          ssh -i ~/.ssh/gcp_key -o StrictHostKeyChecking=no github-actions@$VM_IP "
             set -e
             cd /opt/career-ops-backend
             chmod 600 vertex-ai-agent-key.json
             touch .env
 
-            # GOOGLE_CLOUD_LOCATION is not read by google-cloud-aiplatform (it
-            # reads GOOGLE_CLOUD_REGION) - drop any stale copy so it can't
-            # shadow the correct var.
             sed -i '/^GOOGLE_CLOUD_LOCATION=/d' .env
 
             if grep -q '^GOOGLE_CLOUD_REGION=' .env; then
@@ -69,14 +66,15 @@ jobs:
               echo 'MODEL_NAME=google_vertexai:gemini-3.5-flash' >> .env
             fi
 
-            if [ -n "$SCRAPER_API_KEY" ]; then
+            if [ -n \"$SCRAPER_API_KEY\" ]; then
               if grep -q '^SCRAPER_API_KEY=' .env; then
-                sed -i "s|^SCRAPER_API_KEY=.*|SCRAPER_API_KEY=$SCRAPER_API_KEY|" .env
+                sed -i \"s|^SCRAPER_API_KEY=.*|SCRAPER_API_KEY=$SCRAPER_API_KEY|\" .env
               else
-                echo "SCRAPER_API_KEY=$SCRAPER_API_KEY" >> .env
+                echo \"SCRAPER_API_KEY=$SCRAPER_API_KEY\" >> .env
               fi
             fi
-ENDSSH
+          "
+
 
 
       - name: Deploy to VM
