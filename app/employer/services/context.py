@@ -29,6 +29,10 @@ def build_job_context(job_id: str, employer_id: str) -> dict | None:
         | {e["candidate_user_id"] for e in evaluations}
     )
     users = storage.get_users(candidate_ids)
+    headhunters = [
+        hh for hh_id in storage.list_job_headhunter_ids(job_id)
+        if (hh := storage.get_headhunter(hh_id))
+    ]
 
     return {
         "job": job,
@@ -38,6 +42,7 @@ def build_job_context(job_id: str, employer_id: str) -> dict | None:
         "applications": applications,
         "evaluations": evaluations,
         "offers": offers,
+        "headhunters": headhunters,
         "candidates": [
             {
                 "candidate_user_id": cid,
@@ -54,6 +59,38 @@ def build_job_context(job_id: str, employer_id: str) -> dict | None:
             }
             for cid in candidate_ids
         ],
+    }
+
+
+def build_employer_context(employer_id: str) -> dict:
+    """Employer-wide summary for the chat agent: every job's phase/automation/
+    progress, headhunter roster, and open suggestions — deliberately a
+    SUMMARY (counts, not full candidate lists) so the chat system prompt
+    stays small. The agent drills into one job/candidate via its read tools
+    when a conversation actually needs that detail."""
+    jobs = storage.list_jobs(employer_id)
+    job_summaries = []
+    for job in jobs:
+        progress = pipeline_engine.phase_progress(job)
+        job_summaries.append({
+            "id": job["id"],
+            "title": job["title"],
+            "status": job["status"],
+            "pipeline_phase": job["pipeline_phase"],
+            "automation_level": job["automation_level"],
+            "applicant_count": len(storage.list_applications_for_job(job["id"])),
+            "evaluated_count": sum(
+                1 for e in storage.list_evaluations_for_job(job["id"])
+                if e.get("wlc_score") is not None
+            ),
+            "offer_count": len(storage.list_offers_for_job(job["id"])),
+            "phase_progress": progress,
+        })
+    return {
+        "profile": storage.get_employer_profile(employer_id),
+        "jobs": job_summaries,
+        "headhunters": storage.list_headhunters(employer_id),
+        "open_suggestions": storage.list_suggested_actions(employer_id, status="open"),
     }
 
 

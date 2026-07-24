@@ -16,11 +16,15 @@ take (that's candidate-management).
 ╚═══════════════════════════════════════════════════════════════════════════╝
 """
 
+import json
 from typing import Optional, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
+from app.llm import get_llm
+
 from ..schemas import CommsDraftOut
+from ..prompts import COMMUNICATION_GENERAL_PROMPT
 
 
 class CommunicationState(TypedDict, total=False):
@@ -44,29 +48,55 @@ async def load_context(state: CommunicationState) -> dict:
         )}
     return {"context": None}
 
-
 async def write_email(state: CommunicationState) -> dict:
-    # AGENT SEAM: replace with an LLM draft. Placeholder keeps the flow working.
     ctx = state.get("context") or {}
     candidate = (ctx.get("candidate") or {})
     name = candidate.get("full_name") or "there"
     job = (ctx.get("job") or {})
     role = job.get("title") or "the role"
     kind = state.get("kind", "general")
-    subjects = {
-        "interview_invite": f"Interview invitation — {role}",
-        "follow_up": f"Following up on your application — {role}",
-        "offer": f"Your offer for {role}",
-        "rejection": f"Update on your application — {role}",
-        "general": f"Regarding {role}",
+    profile = ctx.get("profile") or {}
+    company_name = profile.get("company_name") or "our company"
+
+    # Voice grounding: give the model the employer's own words so the email
+    # sounds like this company, not a generic template.
+    voice_parts = []
+    if profile.get("about"):
+        voice_parts.append(f"About the company: {profile['about']}")
+    if profile.get("culture_values"):
+        voice_parts.append(f"Culture/values: {', '.join(profile['culture_values'])}")
+    voice_block = "\n".join(voice_parts) or "No company voice details available — keep it neutral and professional."
+
+    # Anything else the context builder has (stage, evaluation, offer) that
+    # helps the model ground specifics instead of inventing them.
+    situation = {
+        "application_stage": (ctx.get("application") or {}).get("stage"),
+        "match_summary": (ctx.get("evaluation") or {}).get("match_summary"),
+        "offer_status": (ctx.get("offer") or {}).get("status"),
     }
-    subject = subjects.get(kind, subjects["general"])
-    body = (
-        f"Hi {name},\n\n"
-        f"[Placeholder {kind} email for {role}. Replace communication.write_email "
-        f"with real LLM drafting over the candidate context.]\n\n"
-        "Best regards,\nThe hiring team"
-    )
+    situation_block = json.dumps({k: v for k, v in situation.items() if v}, indent=2)
+
+    llm = get_llm().with_structured_output(CommsDraftOut)
+    result = await llm.ainvoke([
+        ("system", COMMUNICATION_GENERAL_PROMPT),
+        ("human", f"""
+            kind: {kind}
+            candidate_name: {name}
+            role: {role}
+            company_name: {company_name}
+
+            {voice_block}
+
+            context (pipeline situation, use only what's relevant):
+            {situation_block}
+
+            Employer instructions (if any, follow these on top of the above): {state.get("instructions") or "none"}
+        """),
+    ])
+    
+    subject = result.subject
+    body = result.body
+    
     return {"draft": CommsDraftOut(subject=subject, body=body)}
 
 

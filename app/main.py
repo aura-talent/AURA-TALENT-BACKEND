@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, Security
@@ -8,6 +9,7 @@ from . import storage
 from .config import settings
 from .routers import applications, career, jobs, resume, scan, users, salary, stats, comm_templates
 from .employer import router as employer_router
+from .employer.scheduler import run_forever as run_auto_job_scheduler
 from .middleware import LoggingMiddleware
 from .logging_config import logger
 
@@ -28,7 +30,9 @@ async def lifespan(app: FastAPI):
     logger.info(f"CORS Origins: {settings.cors_origin_list}")
     storage.init_db()
     logger.info("✅ Database initialized")
+    scheduler_task = asyncio.create_task(run_auto_job_scheduler())
     yield
+    scheduler_task.cancel()
     logger.info("👋 Shutting down Career Ops API")
 
 
