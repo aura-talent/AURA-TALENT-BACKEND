@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 
 from ...auth import verify_user_role
 from .. import storage
-from ..schemas import JobPlanUpsert
+from ..schemas import JobPlanUpsert, PlanDraftIn
 
 router = APIRouter(prefix="/job-plans", tags=["employer:workforce"])
 
@@ -29,6 +29,25 @@ async def list_plans(employer_id: str):
         plan["job_title"] = job["title"]
         plan["job_status"] = job["status"]
     return plans
+
+
+@router.post("/draft")
+async def draft_plan(body: PlanDraftIn):
+    """AI workforce-plan draft (agent seam). Drafts openings/budget/timeline/
+    justification from a job or a brief via the planning graph. Returns a draft
+    for the planner UI — nothing persists until the employer saves via PUT."""
+    verify_user_role(body.employer_id, ["employer"])
+    if body.job_id:
+        _require_owned_job(body.job_id, body.employer_id)
+    from ..graphs.planning import planning_graph
+    result = await planning_graph.ainvoke({
+        "employer_id": body.employer_id,
+        "job_id": body.job_id,
+        "brief": body.brief,
+        "title": body.title,
+    })
+    draft = result["draft"]
+    return draft.model_dump() if hasattr(draft, "model_dump") else draft
 
 
 @router.get("/{job_id}")

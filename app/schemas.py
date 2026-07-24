@@ -86,6 +86,57 @@ class SalaryEstimate(BaseModel):
     location_basis: str
 
 
+class SalaryComparisonInsight(BaseModel):
+    posted_salary: Optional[str] = Field(default=None, description="Formatted posted salary range or 'Undisclosed'")
+    market_median: str = Field(description="Formatted market median base salary, e.g. '$120,000/yr'")
+    market_band: str = Field(description="Market P25-P75 band, e.g. '$100k - $140k'")
+    comparison_verdict: str = Field(description="Above Market | At Market Rate | Below Market | Undisclosed Stated")
+    delta_pct: float = Field(description="Signed % difference vs market median midpoint, e.g. +12.5 or -8.0")
+    percentile_estimate: int = Field(description="Estimated percentile placement of this role comp, e.g. 60")
+    negotiation_anchor: str = Field(description="Suggested target anchor for compensation negotiation")
+    summary: str = Field(description="1-2 sentences comparing role comp against market rates")
+
+
+class GlassdoorSentiment(BaseModel):
+    rating: float = Field(description="Rating 1.0 to 5.0")
+    culture_score: float = Field(description="Culture & values score 1.0 to 5.0")
+    work_life_balance_score: float = Field(description="Work-life balance score 1.0 to 5.0")
+    recommend_to_friend_pct: int = Field(description="Percentage 0-100%")
+    pros: list[str] = Field(description="Top company pros from employees")
+    cons: list[str] = Field(description="Top company cons/complaints from employees")
+
+
+class RedditSentiment(BaseModel):
+    sentiment_label: str = Field(description="Positive | Mixed | Neutral | Negative")
+    community_consensus: str = Field(description="Headline community takeaway from tech/regional subreddits")
+    key_discussions: list[str] = Field(description="Key themes discussed on Reddit about this employer or role")
+    red_flags: list[str] = Field(description="Red flags or warnings raised by redditors")
+
+
+class JobStreetSentiment(BaseModel):
+    rating: float = Field(description="Rating 1.0 to 5.0 on regional job portals")
+    sentiment_label: str = Field(description="Positive | Fair | Mixed | Needs Caution")
+    stability_rating: str = Field(description="High | Moderate | Low — company stability signal")
+    pros: list[str] = Field(description="Regional workplace pros")
+    cons: list[str] = Field(description="Regional workplace cons")
+
+
+class SentimentAnalysis(BaseModel):
+    overall_score: float = Field(ge=1.0, le=5.0, description="Aggregated sentiment score out of 5")
+    overall_label: str = Field(description="Very Favorable | Favorable | Mixed | Needs Caution | Unfavorable")
+    glassdoor: GlassdoorSentiment
+    reddit: RedditSentiment
+    jobstreet: JobStreetSentiment
+    key_takeaways: list[str] = Field(description="3-4 bullet takeaways synthesizing overall sentiment")
+    interview_questions: list[str] = Field(description="3-4 questions the candidate should ask to probe concerns raised")
+
+
+class JobInsights(BaseModel):
+    salary_comparison: SalaryComparisonInsight
+    sentiment: SentimentAnalysis
+
+
+
 class SkillDelta(BaseModel):
     skill: str = Field(description="A skill or signal the candidate could add/strengthen")
     delta_pct: float = Field(description="Approx % it would move the median, e.g. 6 for +6%")
@@ -292,6 +343,8 @@ class EvaluationOut(BaseModel):
     keywords: list[str]
     jd_url: Optional[str] = None
     salary: Optional[SalaryEstimate] = None
+    insights: Optional[JobInsights] = None
+
 
 
 class CompareIn(BaseModel):
@@ -478,6 +531,22 @@ class PipelineStageOut(BaseModel):
     updated_at: str
 
 
+class RecommendJobsIn(BaseModel):
+    user_id: str
+    limit: int = Field(default=5, ge=1, le=20)
+    notify: bool = Field(
+        default=True, description="Email the candidate the recommendations"
+    )
+
+
+class RecommendedJob(BaseModel):
+    job_id: str
+    title: str
+    company: Optional[str] = None
+    location: Optional[str] = None
+    matched_keywords: list[str] = []
+
+
 class PipelineUpdateIn(BaseModel):
     """Payload when an employer posts a pipeline stage update via the backend."""
     employer_id: str
@@ -503,7 +572,9 @@ class TraitScores(BaseModel):
 
 
 class JobTraitTags(BaseModel):
-    tags: list[TraitScores] = Field(description="One entry per job, same order as input")
+    tags: list[TraitScores] = Field(
+        description="One entry per job, same order as input"
+    )
 
 
 class AnimalCopy(BaseModel):
@@ -558,3 +629,50 @@ class AnimalStateOut(BaseModel):
     history: list[AnimalHistoryEntry] = []
     copy: Optional[AnimalCopy] = None
     is_new_animal: bool = False
+
+
+# ── Communication Templates ─────────────────────────────────────────
+
+
+class TemplateOut(BaseModel):
+    id: str
+    category: str
+    purpose: str
+    recommended_case: str
+    tone_options: list[str]
+    placeholders: list[str]
+    subject_template: str
+    body_template: str
+    role: str
+
+
+class GenerateTemplateIn(BaseModel):
+    prompt: str
+    template_id: Optional[str] = None
+    role: str
+    tone: Optional[str] = None
+    length: Optional[str] = None
+    language: Optional[str] = "English"
+    placeholders: Optional[dict[str, str]] = None
+
+
+class GenerateTemplateOut(BaseModel):
+    subject: str
+    body: str
+
+
+class PopulatePlaceholdersIn(BaseModel):
+    placeholders: list[str]
+    role: str
+    candidate_user_id: Optional[str] = None
+    job_id: Optional[str] = None
+
+
+class PopulatePlaceholdersOut(BaseModel):
+    populated: dict[str, str]
+
+
+class FavoriteIn(BaseModel):
+    user_id: str
+    template_id: str
+    is_favorite: bool

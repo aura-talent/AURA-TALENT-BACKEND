@@ -6,11 +6,16 @@ from pydantic_settings import BaseSettings
 
 # Export .env into the process environment so LLM SDKs find their credentials
 # (ANTHROPIC_API_KEY, GOOGLE_API_KEY, GOOGLE_CLOUD_PROJECT, ...).
-load_dotenv()
+# override=True: load_dotenv() defaults to NOT overriding vars already set in
+# the OS environment, so a stale system-level GOOGLE_APPLICATION_CREDENTIALS
+# (e.g. left over from an unrelated GCP project) would silently win over this
+# repo's own .env and break Vertex AI auth with a confusing "file not found".
+load_dotenv(override=True)
 
 
 class Settings(BaseSettings):
-    model_name: str = "anthropic:claude-sonnet-4-6"
+    model_name: str = "google_genai:gemini-3.5-flash"
+
     backend_api_key: str = "change-me"
     career_ops_root: Path = Path(__file__).resolve().parents[2]
     database_path: Path = Path(__file__).resolve().parents[1] / "career_ops.db"
@@ -25,6 +30,19 @@ class Settings(BaseSettings):
     adzuna_app_key: str = ""
     # Adzuna has no Malaysia coverage; MY roles fall back to LLM-only.
     adzuna_country: str = "sg"
+
+    # Optional Scraping Proxy for Cloudflare/Akamai-protected job portals (ScraperAPI / ZenRows / custom proxy)
+    # ScraperAPI provides 1,000 free requests/month (https://www.scraperapi.com)
+    scraper_api_key: str = ""
+    scraper_proxy_url: str = ""
+
+    # Email notifications (Resend) — https://resend.com/docs/api-reference/api-keys
+    # Without resend_api_key set, EmailService logs and no-ops instead of raising,
+    # so the app runs fine in dev without an account.
+    resend_api_key: str = ""
+    email_from: str = "Career Ops <onboarding@resend.dev>"
+    frontend_base_url: str = "http://localhost:3000"
+
 
     class Config:
         env_file = ".env"

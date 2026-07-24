@@ -30,6 +30,53 @@ jobs:
           chmod 600 ~/.ssh/gcp_key
           ssh-keyscan -H 34.132.193.54 >> ~/.ssh/known_hosts
 
+      - name: Sync Vertex AI & Scraper credentials
+        env:
+          VM_IP: ${{ steps.get-ip.outputs.vm_ip }}
+          VERTEX_AI_KEY_JSON: ${{ secrets.VERTEX_AI_KEY_JSON }}
+          SCRAPER_API_KEY: ${{ secrets.SCRAPER_API_KEY }}
+        run: |
+          echo "$VERTEX_AI_KEY_JSON" > /tmp/vertex-ai-agent-key.json
+          scp -i ~/.ssh/gcp_key -o StrictHostKeyChecking=no /tmp/vertex-ai-agent-key.json github-actions@$VM_IP:/opt/career-ops-backend/vertex-ai-agent-key.json
+          rm -f /tmp/vertex-ai-agent-key.json
+
+          ssh -i ~/.ssh/gcp_key -o StrictHostKeyChecking=no github-actions@$VM_IP "
+            set -e
+            cd /opt/career-ops-backend
+            chmod 600 vertex-ai-agent-key.json
+            touch .env
+
+            sed -i '/^GOOGLE_CLOUD_LOCATION=/d' .env
+
+            if grep -q '^GOOGLE_CLOUD_REGION=' .env; then
+              sed -i 's/^GOOGLE_CLOUD_REGION=.*/GOOGLE_CLOUD_REGION=global/' .env
+            else
+              echo 'GOOGLE_CLOUD_REGION=global' >> .env
+            fi
+
+            if grep -q '^GOOGLE_APPLICATION_CREDENTIALS=' .env; then
+              sed -i 's|^GOOGLE_APPLICATION_CREDENTIALS=.*|GOOGLE_APPLICATION_CREDENTIALS=vertex-ai-agent-key.json|' .env
+            else
+              echo 'GOOGLE_APPLICATION_CREDENTIALS=vertex-ai-agent-key.json' >> .env
+            fi
+
+            if grep -q '^MODEL_NAME=' .env; then
+              sed -i 's|^MODEL_NAME=.*|MODEL_NAME=google_vertexai:gemini-3.5-flash|' .env
+            else
+              echo 'MODEL_NAME=google_vertexai:gemini-3.5-flash' >> .env
+            fi
+
+            if [ -n \"$SCRAPER_API_KEY\" ]; then
+              if grep -q '^SCRAPER_API_KEY=' .env; then
+                sed -i \"s|^SCRAPER_API_KEY=.*|SCRAPER_API_KEY=$SCRAPER_API_KEY|\" .env
+              else
+                echo \"SCRAPER_API_KEY=$SCRAPER_API_KEY\" >> .env
+              fi
+            fi
+          "
+
+
+
       - name: Deploy to VM
         env:
           VM_IP: ${{ steps.get-ip.outputs.vm_ip }}

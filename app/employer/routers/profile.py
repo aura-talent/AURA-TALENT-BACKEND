@@ -2,9 +2,23 @@ from fastapi import APIRouter, HTTPException
 
 from ...auth import verify_user_role
 from .. import storage
-from ..schemas import EmployerProfileUpsert
+from ..schemas import EmployerProfileUpsert, ProfileImportIn
+from ..services import onboarding
 
 router = APIRouter(prefix="/profile", tags=["employer:profile"])
+
+
+@router.post("/import")
+async def import_profile(body: ProfileImportIn):
+    """Onboarding importer (deterministic service + light LLM structuring).
+    Scrapes a company URL or structures pasted text into an EmployerProfile
+    draft for the onboarding wizard. Returns a draft; nothing persists until
+    the wizard saves via PUT /profile/{user_id}."""
+    verify_user_role(body.employer_id, ["employer"])
+    draft = await onboarding.import_profile(
+        source_url=body.source_url, raw_text=body.raw_text,
+    )
+    return draft.model_dump()
 
 
 @router.get("/{user_id}")

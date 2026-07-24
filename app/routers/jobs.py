@@ -1,12 +1,13 @@
 import json
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.responses import StreamingResponse
 
 from .. import storage
 from ..graphs.compare import compare_graph
 from ..graphs.evaluate import evaluation_graph
-from ..schemas import CompareIn, CompareOut, EvaluateIn, EvaluationOut
+from ..schemas import CompareIn, CompareOut, EvaluateIn, EvaluationOut, RecommendJobsIn
+from ..services.events import emit
 from ..services.jd_fetch import JDFetchError
 from ..logging_config import logger, log_error
 from ..auth import verify_user_role
@@ -17,6 +18,7 @@ _EVAL_NODE_LABELS = {
     "fetch_jd": "Fetching job description...",
     "evaluate_blocks": "Evaluating fit (blocks A–F)...",
     "estimate_salary": "Estimating compensation...",
+    "generate_insights": "Analyzing salary market rate & platform sentiment (Glassdoor/Reddit/JobStreet)...",
     "assess_legitimacy": "Assessing posting legitimacy...",
     "compose_report": "Composing report...",
 }
@@ -64,6 +66,7 @@ async def evaluate_job(body: EvaluateIn):
     ev = result["evaluation"]
     leg = result["legitimacy"]
     salary = result.get("salary")
+    insights = result.get("insights")
 
     logger.info(f"💼 Company: {ev.company}, Role: {ev.role}")
     logger.info(f"📊 Score: {ev.scores.global_score}, Archetype: {ev.archetype}")
@@ -82,6 +85,7 @@ async def evaluate_job(body: EvaluateIn):
         report_markdown=result["report_markdown"],
         keywords=ev.keywords,
         salary=salary.model_dump() if salary else None,
+        insights=insights.model_dump() if insights else None,
     )
 
     logger.info(f"✅ Evaluation saved with ID: {eval_id}")
@@ -99,7 +103,9 @@ async def evaluate_job(body: EvaluateIn):
         report_markdown=result["report_markdown"],
         keywords=ev.keywords,
         salary=salary,
+        insights=insights,
     )
+
 
 
 @router.post("/evaluate/stream")
@@ -159,6 +165,7 @@ async def evaluate_job_stream(body: EvaluateIn):
             ev = final_result["evaluation"]
             leg = final_result["legitimacy"]
             salary = final_result.get("salary")
+            insights = final_result.get("insights")
 
             logger.info(f"💼 Company: {ev.company}, Role: {ev.role}, Score: {ev.scores.global_score}")
 
@@ -175,6 +182,7 @@ async def evaluate_job_stream(body: EvaluateIn):
                 report_markdown=final_result["report_markdown"],
                 keywords=ev.keywords,
                 salary=salary.model_dump() if salary else None,
+                insights=insights.model_dump() if insights else None,
             )
 
             logger.info(f"✅ Evaluation saved with ID: {eval_id}")
@@ -192,7 +200,9 @@ async def evaluate_job_stream(body: EvaluateIn):
                 report_markdown=final_result["report_markdown"],
                 keywords=ev.keywords,
                 salary=salary,
+                insights=insights,
             )
+
             
             result_msg = _sse("result", out.model_dump())
             logger.info("📤 Sending final result to client")
@@ -220,3 +230,49 @@ async def compare_jobs(body: CompareIn):
         evaluations.append(ev)
     result = await compare_graph.ainvoke({"evaluations": evaluations})
     return CompareOut(comparison_markdown=result["comparison_markdown"])
+
+
+@router.post("/recommendations")
+async def recommend_jobs(body: RecommendJobsIn, background_tasks: BackgroundTasks):
+    """Match Active jobs against the candidate's resume by keyword overlap
+    and, when notify=True, email the top matches via the
+    'jobs.recommended' event.
+
+    This is a lightweight keyword-overlap matcher, not the WLC scoring
+    engine — it's meant to surface a first-pass shortlist for the email
+    digest, not to rank candidates for employers."""
+    verify_user_role(body.user_id, ["candidate"])
+    from ..employer import storage as employer_storage
+
+    resume = storage.get_resume(body.user_id)
+    if not resume:
+        raise HTTPException(404, "Upload a resume first")
+
+    resume_text = (resume["markdown"] or "").lower()
+    jobs = employer_storage.list_active_jobs()
+
+    scored: list[dict] = []
+    for job in jobs:
+        keywords = [k.lower() for k in (job.get("keywords") or [])]
+        matched = [k for k in keywords if k and k in resume_text]
+        if matched:
+            scored.append({
+                "job_id": job["id"],
+                "title": job["title"],
+                "company": job.get("team"),
+                "location": job.get("location"),
+                "matched_keywords": matched,
+            })
+
+    scored.sort(key=lambda j: len(j["matched_keywords"]), reverse=True)
+    top = scored[: body.limit]
+
+    if body.notify and top:
+        background_tasks.add_task(
+            emit,
+            "jobs.recommended",
+            candidate_user_id=body.user_id,
+            jobs=top,
+        )
+
+    return {"jobs": top}

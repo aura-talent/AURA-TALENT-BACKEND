@@ -1,5 +1,9 @@
 """Supabase persistence — multi-user replacement for SQLite database."""
 
+from typing import Dict
+from typing import Any
+from typing import List
+from typing import Optional
 import json
 from datetime import date, datetime, timezone
 from supabase import create_client, Client
@@ -84,7 +88,8 @@ def save_evaluation(user_id: str, *, company: str, role: str, jd_url: str | None
                     archetype: str, score: float, scores: dict,
                     recommendation: str, legitimacy: dict,
                     report_markdown: str, keywords: list[str],
-                    salary: dict | None = None) -> int:
+                    salary: dict | None = None,
+                    insights: dict | None = None) -> int:
     # Check if there is an existing evaluation for user_id, company, and role
     res = supabase.table("evaluations")\
         .select("id")\
@@ -108,7 +113,9 @@ def save_evaluation(user_id: str, *, company: str, role: str, jd_url: str | None
         "keywords_json": json.dumps(keywords) if isinstance(keywords, list) else keywords,
     }
     if salary is not None:
-        data["salary_json"] = json.dumps(salary)
+        data["salary_json"] = json.dumps(salary) if isinstance(salary, dict) else salary
+    if insights is not None:
+        data["insights_json"] = json.dumps(insights) if isinstance(insights, dict) else insights
 
     existing_id = res.data[0]["id"] if res.data else None
 
@@ -120,13 +127,19 @@ def save_evaluation(user_id: str, *, company: str, role: str, jd_url: str | None
     try:
         write_res = _write(data)
     except Exception as e:
-        # Tolerate a DB that hasn't had the salary_json column added yet:
-        # retry without it so evaluations still persist.
+        # Tolerate DB missing optional JSON columns
+        changed = False
         if "salary_json" in data and "salary_json" in str(e):
             data.pop("salary_json")
+            changed = True
+        if "insights_json" in data and "insights_json" in str(e):
+            data.pop("insights_json")
+            changed = True
+        if changed:
             write_res = _write(data)
         else:
             raise
+
 
     if existing_id is not None:
         final_id = existing_id
@@ -190,20 +203,20 @@ def _status_update_payload(status: str, notes: str | None = None) -> dict:
 
 def update_application_status(user_id: str, application_id: str, status: str,
                               notes: str | None = None) -> bool:
-    res = supabase.table("applications")\
+    res = supabase.table("job_applications")\
         .update(_status_update_payload(status, notes))\
         .eq("id", application_id)\
-        .eq("user_id", user_id)\
+        .eq("candidate_user_id", user_id)\
         .execute()
     return len(res.data) > 0
 
 
 def update_application_status_by_evaluation(user_id: str, evaluation_id: int,
                                             status: str, notes: str | None = None) -> bool:
-    res = supabase.table("applications")\
+    res = supabase.table("job_applications")\
         .update(_status_update_payload(status, notes))\
         .eq("evaluation_id", evaluation_id)\
-        .eq("user_id", user_id)\
+        .eq("candidate_user_id", user_id)\
         .execute()
     return len(res.data) > 0
 
@@ -218,23 +231,23 @@ def _upsert_linked_application(
     initial_status: str = "Evaluated",
 ) -> None:
     # Link evaluation output into the tracker table without overwriting tracker-owned status.
-    res = supabase.table("applications")\
+    res = supabase.table("job_applications")\
         .select("id")\
-        .eq("user_id", user_id)\
+        .eq("candidate_user_id", user_id)\
         .eq("company", company)\
         .eq("role", role)\
         .execute()
 
     today = evaluation_date or date.today().isoformat()
     data = {
-        "user_id": user_id,
+        "candidate_user_id": user_id,
         "company": company,
         "role": role,
         "evaluation_id": evaluation_id,
     }
     if res.data:
         # Keep the application row as the tracker source of truth; only refresh the evaluation link.
-        supabase.table("applications").update(data).eq("id", res.data[0]["id"]).execute()
+        supabase.table("job_applications").update(data).eq("id", res.data[0]["id"]).execute()
     else:
         # Create a tracker row from evaluation data.
         data["status"] = initial_status or "Evaluated"
@@ -245,7 +258,7 @@ def _upsert_linked_application(
         data["timeline"] = [
             {"date": today, "title": "Job Evaluated", "description": "Successfully ran AI score alignment check.", "custom": False}
         ]
-        supabase.table("applications").insert(data).execute()
+        supabase.table("job_applications").insert(data).execute()
 
 
 def sync_evaluations_to_applications(user_id: str) -> None:
@@ -268,7 +281,7 @@ def sync_evaluations_to_applications(user_id: str) -> None:
 
 def get_all_applications() -> list[dict]:
     """Fetch all applications globally (for employer view)."""
-    res = supabase.table("applications").select("*").order("date", desc=True).execute()
+    res = supabase.table("job_applications").select("*").order("date", desc=True).execute()
     if not res.data:
         return []
 
@@ -294,7 +307,7 @@ def get_all_applications() -> list[dict]:
         out.append({
             "evaluation_id": eval_id or 0,
             "id": app["id"],
-            "user_id": app.get("user_id") or "",
+            "user_id": app.get("candidate_user_id") or "",
             "date": app.get("date") or "",
             "company": app["company"],
             "role": app["role"],
@@ -317,9 +330,9 @@ def list_applications(user_id: str) -> list[dict]:
     try:
         sync_evaluations_to_applications(user_id)
 
-        res = supabase.table("applications")\
+        res = supabase.table("job_applications")\
             .select("*")\
-            .eq("user_id", user_id)\
+            .eq("candidate_user_id", user_id)\
             .execute()
 
         # Fetch evaluations to map score and scores
@@ -375,7 +388,7 @@ def create_manual_application(user_id: str, company: str, role: str, status: str
         {"date": today, "title": "Application Created", "description": f"Manually added to your tracker as '{status}'.", "custom": False}
     ]
     data = {
-        "user_id": user_id,
+        "candidate_user_id": user_id,
         "company": company,
         "role": role,
         "status": status,
@@ -385,17 +398,18 @@ def create_manual_application(user_id: str, company: str, role: str, status: str
         "interviews": [],
         "timeline": default_timeline,
     }
-    res = supabase.table("applications").insert(data).execute()
+    res = supabase.table("job_applications").insert(data).execute()
     if res.data:
         app = res.data[0]
         return {
-            "evaluation_id": 0,
             "id": app["id"],
+            "evaluation_id": app.get("evaluation_id") or 0,
             "date": app.get("date") or "",
-            "company": app["company"],
-            "role": app["role"],
-            "score": 0.0,
-            "status": app["status"],
+            "company": app.get("company") or "",
+            "role": app.get("role") or "",
+            "score": app.get("score") or 0.0,
+            "user_id": app.get("candidate_user_id") or user_id,
+            "status": app.get("status") or "Applied",
             "interview_type": app.get("interview_type") or "none",
             "mock_interview_done": bool(app.get("mock_interview_done")),
             "notes": app.get("notes") or "",
@@ -423,20 +437,20 @@ def update_application_details(user_id: str, application_id: str, status: str, i
         "timeline": timeline
     }
     try:
-        res = supabase.table("applications")\
+        res = supabase.table("job_applications")\
             .update(data)\
             .eq("id", application_id)\
-            .eq("user_id", user_id)\
+            .eq("candidate_user_id", user_id)\
             .execute()
         return len(res.data) > 0
     except Exception as e:
         print(f"Error updating application {application_id}:", e)
         # Fallback: try a minimal update (status only) in case some columns don't exist yet
         try:
-            res = supabase.table("applications")\
+            res = supabase.table("job_applications")\
                 .update({"status": status, "notes": notes})\
                 .eq("id", application_id)\
-                .eq("user_id", user_id)\
+                .eq("candidate_user_id", user_id)\
                 .execute()
             return len(res.data) > 0
         except Exception as e2:
@@ -445,10 +459,10 @@ def update_application_details(user_id: str, application_id: str, status: str, i
 
 
 def delete_application(user_id: str, application_id: str) -> bool:
-    res = supabase.table("applications")\
+    res = supabase.table("job_applications")\
         .delete()\
         .eq("id", application_id)\
-        .eq("user_id", user_id)\
+        .eq("candidate_user_id", user_id)\
         .execute()
     return len(res.data) > 0
 
@@ -528,6 +542,10 @@ def _eval_row(row: dict) -> dict:
     if isinstance(salary, str):
         salary = json.loads(salary) if salary else None
 
+    insights = row.get("insights_json")
+    if isinstance(insights, str):
+        insights = json.loads(insights) if insights else None
+
     return {
         "id": row["id"],
         "user_id": row["user_id"],
@@ -543,82 +561,106 @@ def _eval_row(row: dict) -> dict:
         "report_markdown": row["report_markdown"],
         "keywords": keywords,
         "salary": salary,
+        "insights": insights,
         "status": row["status"],
         "notes": row["notes"] or "",
     }
 
 
+
 # ── Employer pipeline updates ─────────────────────────────────────────
+# ── Candidate pipeline get ------------------------------------
 
 
 def get_pipeline_updates(candidate_user_id: str) -> list[dict]:
-    """Fetch all employer-pushed pipeline stage updates for a candidate."""
+    """Fetch all pipeline stage events for a specific candidate by joining with job_applications."""
     try:
-        res = supabase.table("employer_pipeline_updates") \
-            .select("*") \
-            .eq("candidate_user_id", candidate_user_id) \
-            .order("updated_at", desc=True) \
+        # We use job_applications!inner to perform a strict SQL INNER JOIN on the parent table
+        res = (
+            supabase.table("job_application_stage_events")
+            .select("*, job_applications!inner(candidate_user_id, role, company)")
+            .eq("job_applications.candidate_user_id", candidate_user_id)
+            .order("created_at", desc=True)
             .execute()
+        )
+        
+        stage_mapping = {
+            "application received": 0,
+            "under review": 1,
+            "shortlisted": 2,
+            "interview scheduled": 3,
+            "assessment": 4,
+            "offer extended": 5,
+            "hired": 6
+        }
+        
         out = []
         for row in (res.data or []):
+            app_info = row.get("job_applications") or {}
+            
+            stage_str = row.get("to_stage") or "Application Received"
+            
             out.append({
                 "id": str(row.get("id", "")),
-                "employer_id": row.get("employer_id", ""),
-                "application_id": row.get("application_id") or None,
-                "candidate_user_id": row.get("candidate_user_id") or None,
-                "candidate_name": row.get("candidate_name", ""),
-                "job_title": row.get("job_title", ""),
-                "stage": row.get("stage", ""),
-                "stage_index": int(row.get("stage_index", 0)),
+                "employer_id": row.get("changed_by") or "", 
+                "application_id": str(row.get("job_application_id", "")),
+                "candidate_user_id": candidate_user_id,
+                "candidate_name": "Candidate",
+                "job_title": f"{app_info.get('role', '')} at {app_info.get('company', '')}".strip() or "Unknown Position",
+                "stage": stage_str,
+                "stage_index": stage_mapping.get(stage_str.lower(), 0),
                 "note": row.get("note") or "",
-                "updated_at": str(row.get("updated_at", "")),
+                "updated_at": str(row.get("created_at", "")),
             })
         return out
     except Exception as e:
-        print("Error fetching pipeline updates:", e)
+        print("Error fetching candidate stage events pipeline:", e)
         return []
 
+def get_templates(role_filter: Optional[str] = None) -> List[Dict[str, Any]]:
+    """
+    Fetches templates from Supabase.
+    Applies the custom role-matching criteria efficiently via PostgREST filters.
+    """
+    query = supabase.table("templates").select("*")
+    
+    if role_filter == "candidate":
+        # Candidates see 'candidate' and 'shared' templates
+        response = query.in_("role", ["candidate", "shared"]).order("category").execute()
+    elif role_filter == "employer":
+        # Employers see 'employer' and 'shared' templates
+        response = query.in_("role", ["employer", "shared"]).order("category").execute()
+    elif role_filter:
+        # Fallback fallback for explicit target matching (e.g., 'shared')
+        response = query.eq("role", role_filter).order("category").execute()
+    else:
+        # No filter provided; return all entries
+        response = query.order("category").execute()
+        
+    return response.data
 
-def post_pipeline_update(
-    employer_id: str,
-    candidate_name: str,
-    job_title: str,
-    stage: str,
-    stage_index: int,
-    note: str = "",
-    candidate_user_id: str | None = None,
-    application_id: str | None = None,
-) -> dict | None:
-    """Record a new employer pipeline stage update."""
-    from datetime import datetime
-    data = {
-        "employer_id": employer_id,
-        "candidate_name": candidate_name,
-        "job_title": job_title,
-        "stage": stage,
-        "stage_index": stage_index,
-        "note": note,
-        "updated_at": datetime.utcnow().isoformat(),
-    }
-    if candidate_user_id:
-        data["candidate_user_id"] = candidate_user_id
-    if application_id:
-        data["application_id"] = application_id
+def get_template_by_id(template_id: str) -> Optional[Dict[str, Any]]:
+    """Fetches a single template from Supabase using its unique text ID."""
+    response = supabase.table("templates").select("*").eq("id", template_id).execute()
+    
+    # Return the record dictionary if found, otherwise None
+    return response.data[0] if response.data else None
 
-    # Auto-sync mapping: Employer Pipeline Stage -> Candidate Kanban Status
-    # Pipeline stages: "Application Received", "Under Review", "Shortlisted", "Interview Scheduled", "Assessment", "Offer Extended", "Hired", "Rejected"
-    # Kanban statuses: "Evaluated", "Applied", "Phone Screen", "Technical Test", "First Round", "Second Round", "Final Round", "Offer", "Rejected", "Withdrawn"
-    status_map = {
-        "Application Received": "Applied",
-        "Under Review": "Phone Screen",
-        "Shortlisted": "First Round",
-        "Interview Scheduled": "First Round",
-        "Assessment": "Technical Test",
-        "Offer Extended": "Offer",
-        "Hired": "Offer",
-        "Rejected": "Rejected",
-    }
-    mapped_status = status_map.get(stage)
+def get_user_favorite_ids(user_id: str) -> List[str]:
+    """Retrieves all template IDs favorited by a given user."""
+    res = supabase.table("user_favorite_templates").select("template_id").eq("user_id", user_id).execute()
+    return [row["template_id"] for row in (res.data or [])]
+
+def add_user_favorite(user_id: str, template_id: str) -> None:
+    """Saves a template to a user's favorite index."""
+    supabase.table("user_favorite_templates").upsert({
+        "user_id": user_id,
+        "template_id": template_id
+    }).execute()
+
+def remove_user_favorite(user_id: str, template_id: str) -> None:
+    """Removes a template from a user's favorite index."""
+    supabase.table("user_favorite_templates").delete().eq("user_id", user_id).eq("template_id", template_id).execute()
 
     try:
         # If we mapped a status and we have the application_id, auto-update the application!
@@ -708,3 +750,19 @@ def get_animal_shortlist(user_id: str) -> list[dict]:
             seen.add(card["id"])
             out.append(card)
     return out
+  
+def increment_template_metrics(template_id: str) -> int:
+    """Increments the database utilization counter for popularity analytics."""
+    res = supabase.table("template_popularity").select("use_count").eq("template_id", template_id).execute()
+    if res.data:
+        new_count = res.data[0]["use_count"] + 1
+        supabase.table("template_popularity").update({"use_count": new_count}).eq("template_id", template_id).execute()
+    else:
+        new_count = 1
+        supabase.table("template_popularity").insert({"template_id": template_id, "use_count": 1}).execute()
+    return new_count
+
+def get_top_popular_ids(limit: int = 5) -> List[str]:
+    """Retrieves the top template IDs sorted by maximum usage metrics."""
+    res = supabase.table("template_popularity").select("template_id").order("use_count", desc=True).limit(limit).execute()
+    return [row["template_id"] for row in (res.data or [])]

@@ -13,10 +13,12 @@ from ..logging_config import logger, log_error
 from ..prompts import EVALUATE_SYSTEM, LEGITIMACY_SYSTEM, SALARY_SYSTEM
 from ..schemas import (
     EvaluationBlocks,
+    JobInsights,
     LegitimacyAssessment,
     SalaryEstimate,
     SalaryReasoning,
 )
+from ..services.insights import generate_job_insights
 from ..services.jd_fetch import fetch_jd_text
 from ..services.salary import fetch_market_grounding
 
@@ -29,7 +31,9 @@ class EvalState(TypedDict, total=False):
     evaluation: EvaluationBlocks
     legitimacy: LegitimacyAssessment
     salary: Optional[SalaryEstimate]
+    insights: Optional[JobInsights]
     report_markdown: str
+
 
 
 async def fetch_jd(state: EvalState) -> dict:
@@ -116,6 +120,25 @@ async def estimate_salary(state: EvalState) -> dict:
         return {"salary": None}
 
 
+async def generate_insights(state: EvalState) -> dict:
+    """Generates salary comparison vs market rate and Glassdoor/Reddit/JobStreet sentiment."""
+    try:
+        ev = state["evaluation"]
+        sal = state.get("salary")
+        loc = sal.location_basis if sal else "Remote/General"
+        insights = await generate_job_insights(
+            company=ev.company,
+            role=ev.role,
+            location=loc,
+            jd_text=state.get("jd_text") or "",
+            salary=sal,
+        )
+        return {"insights": insights}
+    except Exception as e:
+        log_error(e, context="generate_insights")
+        return {"insights": None}
+
+
 async def assess_legitimacy(state: EvalState) -> dict:
     llm = get_llm().with_structured_output(LegitimacyAssessment)
     result = await llm.ainvoke([
@@ -148,6 +171,22 @@ def _salary_md(state: EvalState) -> str:
     return "\n".join(lines)
 
 
+def _insights_md(state: EvalState) -> str:
+    ins = state.get("insights")
+    if not ins:
+        return ""
+    sc = ins.salary_comparison
+    st = ins.sentiment
+    lines = [
+        "\n\n### Job Posting Insights & Platform Sentiment",
+        f"- **Salary vs Market Rate:** {sc.comparison_verdict} ({sc.delta_pct:+.1f}%) — {sc.summary}",
+        f"- **Glassdoor Rating:** {st.glassdoor.rating:.1f}/5 (WLB: {st.glassdoor.work_life_balance_score:.1f}/5, Recommend: {st.glassdoor.recommend_to_friend_pct}%)",
+        f"- **Reddit Community Sentiment:** {st.reddit.sentiment_label} — {st.reddit.community_consensus}",
+        f"- **JobStreet SEA Perception:** {st.jobstreet.sentiment_label} (Rating {st.jobstreet.rating:.1f}/5, Stability: {st.jobstreet.stability_rating})",
+    ]
+    return "\n".join(lines)
+
+
 def compose_report(state: EvalState) -> dict:
     ev = state["evaluation"]
     leg = state["legitimacy"]
@@ -172,7 +211,7 @@ def compose_report(state: EvalState) -> dict:
 {ev.block_c_level_strategy}
 
 ## D) Comp and Demand
-{ev.block_d_comp_demand}{_salary_md(state)}
+{ev.block_d_comp_demand}{_salary_md(state)}{_insights_md(state)}
 
 ## E) Customization Plan
 {ev.block_e_customization}
@@ -202,15 +241,18 @@ def build_evaluation_graph():
     g.add_node("fetch_jd", fetch_jd)
     g.add_node("evaluate_blocks", evaluate_blocks)
     g.add_node("estimate_salary", estimate_salary)
+    g.add_node("generate_insights", generate_insights)
     g.add_node("assess_legitimacy", assess_legitimacy)
     g.add_node("compose_report", compose_report)
     g.add_edge(START, "fetch_jd")
     g.add_edge("fetch_jd", "evaluate_blocks")
     g.add_edge("evaluate_blocks", "estimate_salary")
-    g.add_edge("estimate_salary", "assess_legitimacy")
+    g.add_edge("estimate_salary", "generate_insights")
+    g.add_edge("generate_insights", "assess_legitimacy")
     g.add_edge("assess_legitimacy", "compose_report")
     g.add_edge("compose_report", END)
     return g.compile()
 
 
 evaluation_graph = build_evaluation_graph()
+
