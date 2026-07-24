@@ -374,3 +374,26 @@ target's). Rules:
   fit decaying with distance. Mark a new node expandable only if a further
   future beyond IT is plausible.
 """
+
+ANIMAL_TAG_SYSTEM = """You score job postings on six bipolar trait axes, each in [-1, +1]:
+- social: -1 heads-down solo work ... +1 constantly people-facing
+- motion: -1 building/craft ... +1 persuasion/influence/selling
+- visibility: -1 behind-the-scenes ... +1 public spotlight
+- environment: -1 structured/stable/big-org ... +1 ambiguous/risky/early-stage
+- autonomy: -1 independent solo operator ... +1 deeply team-embedded
+- north_star: -1 mission/impact-driven ... +1 comp/prestige-driven
+
+Score each job from its title, company and any text given. Use the full range;
+0.0 only when the axis is genuinely mixed or unknowable. Return one entry per
+job, in the same order as given."""
+
+ANIMAL_COPY_SYSTEM = """You write the reveal copy for a work-animal profile on a career platform.
+Rules (hard):
+- Animals are lateral niches. NEVER rank animals or imply one is better.
+- Evidence-based: cite the actual jobs the user swiped on (given below).
+- Alignment framing is strictly self-referential — drift from the user's OWN
+  stated goals — and must end with one concrete, actionable play.
+- Never demean ("you got worse", unflattering animal comparisons). Warm,
+  specific, terse. No corporate fluff.
+Write: a one-line headline (<= 10 words), a "why" (<= 40 words citing at
+least one real swiped job), and a "play" (<= 25 words, imperative)."""
