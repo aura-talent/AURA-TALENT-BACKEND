@@ -61,6 +61,12 @@ jobs:
             else
               echo 'GOOGLE_APPLICATION_CREDENTIALS=vertex-ai-agent-key.json' >> .env
             fi
+
+            if grep -q '^MODEL_NAME=' .env; then
+              sed -i 's|^MODEL_NAME=.*|MODEL_NAME=google_vertexai:gemini-3.5-flash|' .env
+            else
+              echo 'MODEL_NAME=google_vertexai:gemini-3.5-flash' >> .env
+            fi
           ENDSSH
 
       - name: Deploy to VM
