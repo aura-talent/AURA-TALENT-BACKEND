@@ -12,6 +12,7 @@ The six bipolar axes (each in [-1, +1], canonical order everywhere):
 import hashlib
 import json
 import math
+import random
 import statistics
 from pathlib import Path
 
@@ -162,9 +163,10 @@ def build_deck(
         })
     if len(deck) < count:
         have = {c["id"] for c in deck}
-        for seed in load_seed_deck():
+        pool = [s for s in load_seed_deck() if s["id"] not in have]
+        random.shuffle(pool)  # different seed cards each session (real scan jobs stay first)
+        for seed in pool:
             if len(deck) >= count:
                 break
-            if seed["id"] not in have:
-                deck.append(seed)
+            deck.append(seed)
     return deck
