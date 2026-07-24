@@ -17,13 +17,19 @@ def test_card_id_stable_and_short():
     assert a != animal.card_id("https://x.com/2")
 
 
-def test_seed_deck_loads_15_tagged_cards():
+def test_seed_deck_loads_tagged_cards():
     seed = animal.load_seed_deck()
-    assert len(seed) == 15
+    assert len(seed) >= 30  # a pool larger than a deck, so sessions get variety
     for card in seed:
         assert set(card["traits"]) == set(animal.AXES)
         assert card["id"] == animal.card_id(card["url"])
         assert card["source"] == "seed"
+
+
+def test_build_deck_seed_topup_varies_across_calls():
+    # empty scan feed → seed-only decks that differ between sessions
+    decks = ["".join(c["id"] for c in animal.build_deck([], [], count=15)) for _ in range(6)]
+    assert len(set(decks)) > 1  # not identical every time
 
 
 def test_build_deck_zips_jobs_with_traits():
