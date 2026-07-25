@@ -5,7 +5,7 @@ from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings
 
 # Export .env into the process environment so LLM SDKs find their credentials
-# (ANTHROPIC_API_KEY, GOOGLE_API_KEY, GOOGLE_CLOUD_PROJECT, ...).
+# (GOOGLE_API_KEY, GOOGLE_CLOUD_PROJECT, ...).
 # override=True: load_dotenv() defaults to NOT overriding vars already set in
 # the OS environment, so a stale system-level GOOGLE_APPLICATION_CREDENTIALS
 # (e.g. left over from an unrelated GCP project) would silently win over this
