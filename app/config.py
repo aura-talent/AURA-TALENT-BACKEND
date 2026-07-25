@@ -18,6 +18,10 @@ class Settings(BaseSettings):
 
     backend_api_key: str = "change-me"
     career_ops_root: Path = Path(__file__).resolve().parents[2]
+    # Explicit override for where the personalized portals.yml lives in a given
+    # deployment. Unset by default — load_portals() falls back to relative
+    # candidates and finally the bundled generic template.
+    portals_yml_path: str = ""
     database_path: Path = Path(__file__).resolve().parents[1] / "career_ops.db"
     cors_origins: str = "http://localhost:3000"
 

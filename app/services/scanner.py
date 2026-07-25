@@ -7,6 +7,7 @@ extend with more providers as needed.
 """
 
 import asyncio
+import logging
 import re
 
 import httpx
@@ -15,26 +16,35 @@ import yaml
 from pathlib import Path
 from ..config import settings
 
+logger = logging.getLogger(__name__)
+
 _TIMEOUT = 10
 _CONCURRENCY = 10
 
 
 def load_portals() -> dict:
+    repo_root = Path(__file__).resolve().parents[2]
     candidates = [
+        # Explicit deployment override (PORTALS_YML_PATH env var) takes
+        # priority — lets ops drop the personalized file anywhere without
+        # touching code.
+        *([Path(settings.portals_yml_path)] if settings.portals_yml_path else []),
         settings.career_ops_root / "portals.yml",
-        Path(__file__).resolve().parents[2] / "portals.yml",
-        Path(__file__).resolve().parents[1] / "portals.yml",
-        Path("/home/charleshor/career-ops/portals.yml"),
-        Path("/opt/career-ops-backend/portals.yml"),
-        settings.career_ops_root / "templates" / "portals.example.yml",
-        Path(__file__).resolve().parents[2] / "templates" / "portals.example.yml",
-        Path(__file__).resolve().parents[1] / "templates" / "portals.example.yml",
+        repo_root / "portals.yml",
+        # Bundled generic template ships with this repo, so it's always
+        # present after a plain `git clone` even when the personalized
+        # portals.yml (gitignored, user data) was never deployed.
+        repo_root / "templates" / "portals.example.yml",
     ]
     for p in candidates:
         if p.exists():
             with open(p) as f:
                 return yaml.safe_load(f)
-    raise FileNotFoundError("Could not locate portals.yml")
+    logger.error("load_portals: none of these paths exist: %s", candidates)
+    raise FileNotFoundError(
+        "Could not locate portals.yml or the bundled templates/portals.example.yml "
+        "fallback — check server logs for the exact paths that were tried."
+    )
 
 
 
