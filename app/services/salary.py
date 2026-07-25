@@ -57,13 +57,15 @@ _CURRENCY_BY_COUNTRY = {
 
 
 async def fetch_market_grounding(
-    title: str, location: Optional[str] = None
+    title: str, location: Optional[str] = None, country: Optional[str] = None
 ) -> Optional[MarketGrounding]:
-    """Best-effort market band for a role. None when unavailable."""
+    """Best-effort market band for a role. None when unavailable.
+    `country` (lowercase Adzuna code) overrides the global setting —
+    the Fair Pay engine passes the user's actual selection."""
     if not settings.adzuna_app_id or not settings.adzuna_app_key:
         return None
 
-    country = (settings.adzuna_country or "us").lower()
+    country = (country or settings.adzuna_country or "us").lower()
     url = f"{_BASE}/jobs/{country}/histogram"
     params = {
         "app_id": settings.adzuna_app_id,

@@ -70,3 +70,17 @@ def test_endpoint_serves_dataset(client):
     assert res.status_code == 200
     body = res.json()
     assert {"updated", "sources", "universities", "roles"} <= set(body.keys())
+
+
+def test_role_anchor_ordering_and_typical_ranges():
+    """Fair Pay interpolates junior→senior and derives band width from the
+    typical range — both must be sane for every role/country."""
+    d = stats._load_dataset()
+    for r in d["roles"]:
+        for c, band in r.get("salary", {}).items():
+            t = band.get("typical") or {}
+            if t.get("lo") is not None and t.get("hi") is not None:
+                assert t["lo"] < t["hi"], f"{r['id']}/{c} typical lo >= hi"
+            j, s = band.get("junior"), band.get("senior")
+            if j is not None and s is not None:
+                assert j <= s, f"{r['id']}/{c} junior > senior"

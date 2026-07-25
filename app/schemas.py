@@ -143,45 +143,115 @@ class SkillDelta(BaseModel):
     note: str = Field(description="One short clause on why")
 
 
-class SelfWorthReasoning(BaseModel):
-    """LLM structured output for the candidate's own market worth."""
-
-    currency: str = Field(description="ISO 4217 inferred from location, default USD")
-    period: str = Field(description="year | month | hour")
-    worth: SalaryBand = Field(description="What the candidate is worth, base salary")
-    total_comp_high: Optional[float] = Field(
-        default=None, description="Realistic ceiling incl. bonus/equity"
-    )
-    confidence: str = Field(description="high | medium | low — honest about thin data")
-    location_basis: str = Field(description="What the figures are normalized to")
-    headline_role: str = Field(description="The role title the band is priced for")
-    summary: str = Field(description="2-3 sentence plain-language read on their market position")
-    skill_deltas: list[SkillDelta] = Field(
-        description="3-5 highest-leverage skills/signals that would raise the band"
-    )
-
-
-class SelfWorthIn(BaseModel):
-    user_id: str
-    location: Optional[str] = Field(default=None, description="User's target market, e.g. 'Remote', 'Singapore'")
-    currency: Optional[str] = Field(default=None, description="Override currency, ISO 4217")
-    university_id: Optional[str] = Field(default=None, description="Employability-dataset university id (SG/MY)")
-    degree_field: Optional[str] = Field(default=None, description="Degree/field within that university")
-    country: Optional[str] = Field(default=None, description="SG or MY — for logging/context")
-
-
-class SelfWorthOut(BaseModel):
+class FairPayBand(BaseModel):
+    p25: float
+    p50: float
+    p75: float
     currency: str
-    period: str
-    worth: SalaryBand
-    total_comp_high: Optional[float] = None
-    confidence: str
+    period: str  # "month"
+
+
+class FairPayConfidence(BaseModel):
+    level: str  # high | medium | low — rule-based, never from the LLM
+    reason: str  # e.g. "JOBSTREET+HAYS_BAND", "ADZUNA_N=41", "LLM_ONLY"
+
+
+class ReceiptRow(BaseModel):
+    id: str  # base_band | experience | university | resume
+    label: str
+    effect: str  # display string, e.g. "MYR 5,250–7,750" or "+8% vs median"
+    reasoning: str
+    source: Optional[str] = None
+
+
+class TrajectoryPoint(BaseModel):
+    offset_years: int  # 0 | 1 | 3 | 5
+    point: float
+    band: FairPayBand
+    annotation: Optional[str] = None
+
+
+class AlternateRoleOut(BaseModel):
+    role_id: str
+    title: str
+    band: FairPayBand
+    delta_pct: float  # median vs the user's point, signed
+    note: str
+
+
+class UniContext(BaseModel):
+    name: str
+    rate: Optional[float] = None
+    field: Optional[str] = None
+
+
+class FairPayIn(BaseModel):
+    user_id: str
+    country: str = Field(description="ISO-2, e.g. MY, SG, US — drives grounding path")
+    role_id: Optional[str] = Field(default=None, description="Dataset role id; None => auto-match")
+    years: Optional[float] = Field(default=None, description="Experience override from the UI stepper")
+    university_id: Optional[str] = None
+    degree_field: Optional[str] = None
+    city_refine: Optional[str] = Field(default=None, description="Optional Adzuna 'where' refinement")
+    currency: Optional[str] = Field(default=None, description="Display preference, LLM-only mode")
+
+
+class FairPayOut(BaseModel):
+    grounding_mode: str  # data | llm
+    role_id: Optional[str] = None
+    role_title: str
+    country: str
+    years: float
+    point: float
+    percentile: float  # 25–75, position within band
+    band: FairPayBand
+    confidence: FairPayConfidence
+    receipt: list[ReceiptRow]
+    trajectory: list[TrajectoryPoint]
+    alternates: list[AlternateRoleOut]
+    leverage: list[SkillDelta] = []
+    summary: str
+    uni_context: Optional[UniContext] = None
     sources: list[str] = []
     as_of: str
-    location_basis: str
-    headline_role: str
-    summary: str
-    skill_deltas: list[SkillDelta] = []
+
+
+class AlternateNote(BaseModel):
+    role_id: str = Field(description="Dataset role id from the provided list")
+    note: str = Field(description="One line: why this move is plausible for THIS resume")
+    est_p50: Optional[float] = Field(
+        default=None, gt=0,
+        description="Monthly median estimate for this role in the target country — "
+        "always provide; used only when no data band exists",
+    )
+
+
+class FairPayLLMBand(BaseModel):
+    p25: float = Field(gt=0)
+    p50: float = Field(gt=0)
+    p75: float = Field(gt=0)
+    currency: str = Field(description="ISO 4217 for the target country")
+    period: str = Field(description="Always 'month'")
+
+
+class FairPayReasoning(BaseModel):
+    """Structured output for the single Fair Pay LLM call. The numbers are
+    computed server-side; this model POSITIONS the candidate and explains."""
+
+    position: float = Field(description="0..1 — where this candidate prices in the given band (0=P25, 1=P75)")
+    base_band_reasoning: str = Field(description="One line on the band source/market")
+    experience_reasoning: str = Field(description="One line on the experience interpolation")
+    university_reasoning: str = Field(description="One line on the university factor (or its absence)")
+    resume_reasoning: str = Field(description="One line: the resume signals that set the position")
+    milestone_annotations: list[str] = Field(
+        description="Exactly 4 annotations (≤120 chars) for now/+1y/+3y/+5y"
+    )
+    alternates: list[AlternateNote] = Field(description="3-5 plausible role moves")
+    leverage: list[SkillDelta] = Field(description="3-5 highest-leverage improvements")
+    summary: str = Field(description="2-3 sentence plain-language market read")
+    llm_band: Optional[FairPayLLMBand] = Field(
+        default=None, description="Monthly band — ONLY when asked (no data grounding)"
+    )
 
 
 class LegitimacySignal(BaseModel):
