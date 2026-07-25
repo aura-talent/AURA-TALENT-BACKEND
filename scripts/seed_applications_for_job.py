@@ -1,7 +1,9 @@
 """Attach N real applications to a job you point at, so the automation engine
 (deterministic applicant-target gate, the real WLC evaluation agent, and the
-5-minute hr_supervisor scheduler sweep) has real data to react to instead of
-sitting idle at zero applicants.
+hr_supervisor scheduler sweep) has real data to react to instead of sitting
+idle at zero applicants.
+
+See scripts/README.md for full usage, flags, and troubleshooting.
 
 Goes through the exact same code paths as the real apply flow
 (POST /employer/applications): storage.create_application() followed by
@@ -92,7 +94,7 @@ async def seed(job_id: str, count: int, skip_evaluation: bool) -> None:
     print(f"\nDone — {created}/{len(picks)} applications created on {job['title']!r}.")
     if job["automation_level"] == "auto":
         print(
-            "Job is in auto mode — the next scheduler sweep (every 5 min) will "
+            "Job is in auto mode — the next scheduler sweep (every 60s) will "
             "pick this up: headhunter auto-assign (if none yet) → sourcing → "
             "phase-target check → auto-advance."
         )
