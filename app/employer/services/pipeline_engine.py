@@ -10,10 +10,16 @@ Mirrors the client-side derivation in
 AURA-TALENT-FRONTEND/app/employer/pipelineConfig.ts so the two agree on what
 "target met" means. phase_targets live on the job (jobs.phase_targets, 0002):
     [{ phaseId, metric, targetCount }]
-metric ∈ applicants | evaluated | offers | hires | manual
+metric ∈ applicants | evaluated | offers | hires | selected | manual
+
+'selected' (0004) counts job_applications.selected_for_offer — see
+_unprocessed_qualifying_count for why its 'met' check is more than a count
+comparison, unlike every other metric.
 """
 
 from .. import storage
+
+DEFAULT_MINIMUM_OFFER_SCORE = 60
 
 # Fallback phase order when an employer has no configured hiring_pipeline_phases
 # (matches the employer_profiles.hiring_pipeline_phases default in 0001 and
@@ -52,7 +58,42 @@ def _metric_count(metric: str, job_id: str) -> int:
         return storage.count_offers_for_job(job_id)
     if metric == "hires":
         return storage.count_offers_for_job(job_id, status="accepted")
+    if metric == "selected":
+        return sum(
+            1 for a in storage.list_applications_for_job(job_id)
+            if a.get("selected_for_offer")
+        )
     return 0  # manual gate
+
+
+def _unprocessed_qualifying_count(job: dict) -> int:
+    """For the 'selected' metric only: how many evaluated applicants have
+    reached the job's minimum_offer_score but are neither selected nor
+    rejected yet. While this is nonzero the evaluation-phase decision isn't
+    finished, so the phase can't be 'met' no matter how high selected count
+    already is — otherwise a job could advance while candidates are still
+    sitting in limbo between the threshold check and the offer-selection
+    call (see services/auto_shortlist.py)."""
+    job_id = job["id"]
+    threshold = job.get("minimum_offer_score")
+    if threshold is None:
+        threshold = DEFAULT_MINIMUM_OFFER_SCORE
+    scores_by_candidate = {
+        e["candidate_user_id"]: e["wlc_score"]
+        for e in storage.list_evaluations_for_job(job_id)
+        if e.get("wlc_score") is not None
+    }
+    apps_by_candidate = {
+        a["candidate_user_id"]: a for a in storage.list_applications_for_job(job_id)
+    }
+    count = 0
+    for cid, score in scores_by_candidate.items():
+        app = apps_by_candidate.get(cid)
+        if not app or app.get("is_rejected") or app.get("selected_for_offer"):
+            continue
+        if score >= threshold:
+            count += 1
+    return count
 
 
 def phase_progress_for(job: dict, phase_id: str | None) -> dict:
@@ -66,6 +107,8 @@ def phase_progress_for(job: dict, phase_id: str | None) -> dict:
     is_manual_gate = metric == "manual" or target_count <= 0
     current = 0 if is_manual_gate else _metric_count(metric, job["id"])
     met = (not is_manual_gate) and current >= target_count
+    if met and metric == "selected":
+        met = _unprocessed_qualifying_count(job) == 0
     return {
         "phaseId": phase_id,
         "metric": metric,
@@ -129,3 +172,21 @@ def advance_phase(
         "trigger": trigger,
         "job": updated,
     }
+
+
+def default_phase_targets(phase_ids: list[str]) -> list[dict]:
+    """Sensible per-phase targets for a freshly created job — without these,
+    every phase is an unmeasurable manual gate (metric='manual' above) and an
+    'auto' job can never advance past its first phase. Mirrors the frontend's
+    defaultTargetFor (AURA-TALENT-FRONTEND/app/employer/pipelineConfig.ts).
+    Shared by both job-creation paths (routers/jobs.py, graphs/hr_chat.py) so
+    they can't drift apart."""
+    defaults = {
+        "open-hiring": {"metric": "applicants", "targetCount": 5},
+        "evaluation": {"metric": "selected", "targetCount": 4},
+        "offer-decision": {"metric": "hires", "targetCount": 1},
+    }
+    return [
+        {"phaseId": pid, **defaults.get(pid, {"metric": "manual", "targetCount": 0})}
+        for pid in phase_ids
+    ]

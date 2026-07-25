@@ -34,6 +34,7 @@ class JobCreate(BaseModel):
     dimension_weights: Optional[dict[str, int]] = None
     custom_criteria: list[dict] = Field(default_factory=list)  # [{name, priority}]
     headhunter_ids: list[str] = Field(default_factory=list)
+    minimum_offer_score: Optional[float] = None  # 0-100; falls back to a system default when unset (0004)
 
 
 class JobUpdate(BaseModel):
@@ -58,6 +59,7 @@ class JobUpdate(BaseModel):
     dimension_weights: Optional[dict[str, int]] = None
     custom_criteria: Optional[list[dict]] = None
     headhunter_ids: Optional[list[str]] = None
+    minimum_offer_score: Optional[float] = None
 
 
 # ── headhunters ──────────────────────────────────────────────────────────
@@ -89,6 +91,14 @@ class StageMove(BaseModel):
     employer_id: str  # who is moving the card (role-checked, logged as changed_by)
     to_stage: str
     note: Optional[str] = None
+
+
+class SelectForOffer(BaseModel):
+    """Manual counterpart (0004) to the deterministic auto-shortlist step —
+    works for any automation_level, since a human can always hand-pick an
+    Offer Console candidate the same way they can always move a stage."""
+    employer_id: str
+    selected: bool
 
 
 # ── pipeline phase advance ───────────────────────────────────────────────
@@ -222,10 +232,22 @@ class SuggestedActionOut(BaseModel):
     title: str
     body: Optional[str] = None
     payload: dict = Field(default_factory=dict)
+    agent: Optional[str] = None  # which specialist authored this (0004) — see lib/agentLabels.ts
+    status: Optional[Literal["open", "done", "dismissed"]] = None  # default "open" applied at persistence
 
 
 class NextActionsOut(BaseModel):
     actions: list[SuggestedActionOut] = Field(default_factory=list)
+
+
+class OfferSelectionOut(BaseModel):
+    """LLM structured output for auto-shortlisting (0004): ranks a pool of
+    already-above-threshold candidates and picks the top `target_count` for
+    offer. The deterministic auto_shortlist.apply_offer_selection() executes
+    the mutation — this model only carries the judgment call, same boundary
+    as RoutingDecision/NextActionsOut elsewhere in this codebase."""
+    selected_candidate_ids: list[str] = Field(default_factory=list)
+    reasoning: str
 
 
 # ── employer profile import / onboarding (service, not an agent) ─────────

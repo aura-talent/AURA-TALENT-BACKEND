@@ -4,6 +4,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.responses import StreamingResponse
 
 from .. import storage
+from ..employer import storage as employer_storage
 from ..graphs.compare import compare_graph
 from ..graphs.evaluate import evaluation_graph
 from ..schemas import CompareIn, CompareOut, EvaluateIn, EvaluationOut, RecommendJobsIn
@@ -26,6 +27,18 @@ _EVAL_NODE_LABELS = {
 
 def _sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+
+@router.get("/list-all-jobs")
+async def list_active_jobs():
+    return employer_storage.list_active_jobs()
+
+@router.get("/{job_id}")
+async def get_job(job_id: str):
+    job = employer_storage.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job
 
 
 @router.post("/evaluate", response_model=EvaluationOut)

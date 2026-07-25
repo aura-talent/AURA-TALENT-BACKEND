@@ -37,14 +37,21 @@ async def browse_pool(employer_id: str, job_id: str | None = None):
 
 
 @router.get("/candidates")
-async def list_candidates(employer_id: str, job_id: str | None = None):
+async def list_candidates(
+    employer_id: str, job_id: str | None = None, only_selected: bool = False,
+):
     """Consolidated candidate rows across the employer's jobs — one per
     (job, candidate) pair with user info + application + evaluation merged,
-    best wlc_score first. Optionally filtered to one job."""
+    best wlc_score first. Optionally filtered to one job. only_selected=true
+    narrows to rows whose application has been marked selected_for_offer —
+    this is what powers the Offer Console (0004): only candidates explicitly
+    selected during Evaluation, not the whole applicant/candidate pool."""
     verify_user_role(employer_id, ["employer"])
     rows = storage.list_candidate_rows(employer_id)
     if job_id:
         rows = [r for r in rows if r["job_id"] == job_id]
+    if only_selected:
+        rows = [r for r in rows if r["application"] and r["application"].get("selected_for_offer")]
     return rows
 
 
@@ -122,23 +129,9 @@ async def candidate_next_actions(candidate_user_id: str, body: NextActionsIn):
         "candidate_user_id": candidate_user_id,
     })
     actions = result.get("actions", [])
-
-    storage.delete_open_suggested_actions(
-        body.employer_id, source="candidate-management", job_id=body.job_id,
+    saved = storage.replace_open_suggestions(
+        body.employer_id, body.job_id, "candidate-management", actions,
     )
-    saved = []
-    for a in actions:
-        a = a.model_dump() if hasattr(a, "model_dump") else a
-        saved.append(storage.create_suggested_action({
-            "employer_id": body.employer_id,
-            "job_id": (a.get("payload") or {}).get("job_id") or body.job_id,
-            "candidate_user_id": (a.get("payload") or {}).get("candidate_user_id") or candidate_user_id,
-            "kind": a["kind"],
-            "title": a["title"],
-            "body": a.get("body"),
-            "payload": a.get("payload") or {},
-            "source": "candidate-management",
-        }))
     return {"actions": saved}
 
 
