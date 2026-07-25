@@ -3,28 +3,25 @@ from fastapi import APIRouter, HTTPException
 from .. import storage
 from ..auth import verify_user_role
 from ..logging_config import logger, log_error
-from ..schemas import SelfWorthIn, SelfWorthOut
-from ..services.worth import estimate_self_worth
+from ..schemas import FairPayIn, FairPayOut
+from ..services.worth import estimate_fair_pay
 
 router = APIRouter(prefix="/salary", tags=["salary"])
 
 
-@router.post("/self", response_model=SelfWorthOut)
-async def self_worth(body: SelfWorthIn):
-    """What is the candidate worth on the market, from their resume profile."""
+@router.post("/self", response_model=FairPayOut)
+async def self_worth(body: FairPayIn):
+    """Fair Pay: deterministic band + LLM positioning for the candidate."""
     verify_user_role(body.user_id, ["candidate"])
     resume = storage.get_resume(body.user_id)
     if not resume:
         raise HTTPException(404, "Upload a resume first")
     logger.info(
-        f"💵 Self-worth estimate for user: {body.user_id} "
-        f"(loc={body.location}, uni={body.university_id}, degree={body.degree_field})"
+        f"💵 FairPay for user: {body.user_id} (country={body.country}, "
+        f"role={body.role_id}, years={body.years}, uni={body.university_id})"
     )
     try:
-        return await estimate_self_worth(
-            resume, body.location, body.currency,
-            body.university_id, body.degree_field,
-        )
+        return await estimate_fair_pay(resume, body)
     except Exception as e:
-        log_error(e, context="self_worth")
+        log_error(e, context="fair_pay")
         raise HTTPException(500, "Could not estimate worth — try again.")
