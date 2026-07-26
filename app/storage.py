@@ -662,6 +662,95 @@ def remove_user_favorite(user_id: str, template_id: str) -> None:
     """Removes a template from a user's favorite index."""
     supabase.table("user_favorite_templates").delete().eq("user_id", user_id).eq("template_id", template_id).execute()
 
+    try:
+        # If we mapped a status and we have the application_id, auto-update the application!
+        if mapped_status and application_id and candidate_user_id:
+            # We need to fetch the existing timeline to append to it
+            app_res = supabase.table("applications").select("timeline").eq("id", application_id).execute()
+            if app_res.data:
+                old_timeline = app_res.data[0].get("timeline") or []
+                today = datetime.utcnow().strftime("%Y-%m-%d")
+                new_timeline = old_timeline + [{
+                    "date": today,
+                    "title": f"Moved to {mapped_status}",
+                    "description": f"Employer advanced your application to {stage}.",
+                    "custom": False,
+                }]
+
+                supabase.table("applications").update({
+                    "status": mapped_status,
+                    "timeline": new_timeline
+                }).eq("id", application_id).execute()
+
+        res = supabase.table("employer_pipeline_updates").insert(data).execute()
+        if res.data:
+            row = res.data[0]
+            return {
+                "id": str(row.get("id", "")),
+                "employer_id": row.get("employer_id", ""),
+                "application_id": row.get("application_id") or None,
+                "candidate_user_id": row.get("candidate_user_id") or None,
+                "candidate_name": row.get("candidate_name", ""),
+                "job_title": row.get("job_title", ""),
+                "stage": row.get("stage", ""),
+                "stage_index": int(row.get("stage_index", 0)),
+                "note": row.get("note") or "",
+                "updated_at": str(row.get("updated_at", "")),
+            }
+    except Exception as e:
+        print("Error posting pipeline update:", e)
+    return None
+
+
+# ── Work-animal module ─────────────────────────────────────────────
+
+
+def get_animal_state(user_id: str) -> dict | None:
+    res = supabase.table("animal_states").select("*").eq("user_id", user_id).execute()
+    if not res.data:
+        return None
+    state = res.data[0]["state_json"]
+    if isinstance(state, str):
+        state = json.loads(state)
+    return state
+
+
+def save_animal_state(user_id: str, state: dict) -> None:
+    supabase.table("animal_states").upsert({
+        "user_id": user_id,
+        "state_json": state,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }).execute()
+
+
+def append_animal_swipes(user_id: str, swipes: list[dict]) -> None:
+    rows = [{
+        "user_id": user_id,
+        "card_json": s["card"],
+        "direction": s["direction"],
+        "decision_ms": s.get("decision_ms", 0),
+        "direction_changes": s.get("direction_changes", 0),
+    } for s in swipes]
+    if rows:
+        supabase.table("animal_swipes").insert(rows).execute()
+
+
+def get_animal_shortlist(user_id: str) -> list[dict]:
+    res = (
+        supabase.table("animal_swipes").select("card_json, direction")
+        .eq("user_id", user_id).eq("direction", "right")
+        .order("created_at", desc=True).execute()
+    )
+    out, seen = [], set()
+    for row in res.data or []:
+        card = row["card_json"]
+        if isinstance(card, str):
+            card = json.loads(card)
+        if card["id"] not in seen:
+            seen.add(card["id"])
+            out.append(card)
+    return out
+  
 def increment_template_metrics(template_id: str) -> int:
     """Increments the database utilization counter for popularity analytics."""
     res = supabase.table("template_popularity").select("use_count").eq("template_id", template_id).execute()

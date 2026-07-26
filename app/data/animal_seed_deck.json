@@ -1,0 +1,452 @@
+[
+ {
+  "company": "Anthropic",
+  "title": "Research Engineer, Interpretability",
+  "url": "https://www.anthropic.com/careers/seed-interp",
+  "location": "San Francisco",
+  "source": "seed",
+  "traits": {
+   "social": -0.8,
+   "motion": -0.8,
+   "visibility": -0.6,
+   "environment": 0.2,
+   "autonomy": -0.3,
+   "north_star": -0.5
+  }
+ },
+ {
+  "company": "Stripe",
+  "title": "Backend Engineer, Payments Infrastructure",
+  "url": "https://stripe.com/jobs/seed-payments",
+  "location": "Remote",
+  "source": "seed",
+  "traits": {
+   "social": -0.6,
+   "motion": -0.9,
+   "visibility": -0.5,
+   "environment": -0.4,
+   "autonomy": 0.2,
+   "north_star": 0.3
+  }
+ },
+ {
+  "company": "YC Startup (Stealth)",
+  "title": "Founding Engineer",
+  "url": "https://www.workatastartup.com/seed-founding",
+  "location": "San Francisco",
+  "source": "seed",
+  "traits": {
+   "social": 0.1,
+   "motion": -0.2,
+   "visibility": 0.2,
+   "environment": 0.95,
+   "autonomy": -0.4,
+   "north_star": 0.2
+  }
+ },
+ {
+  "company": "Google",
+  "title": "Staff Software Engineer, Search",
+  "url": "https://careers.google.com/seed-staff-search",
+  "location": "Mountain View",
+  "source": "seed",
+  "traits": {
+   "social": -0.2,
+   "motion": -0.6,
+   "visibility": 0.1,
+   "environment": -0.7,
+   "autonomy": 0.4,
+   "north_star": 0.6
+  }
+ },
+ {
+  "company": "Salesforce",
+  "title": "Enterprise Account Executive",
+  "url": "https://careers.salesforce.com/seed-ae",
+  "location": "New York",
+  "source": "seed",
+  "traits": {
+   "social": 0.95,
+   "motion": 0.95,
+   "visibility": 0.6,
+   "environment": 0.1,
+   "autonomy": 0.3,
+   "north_star": 0.8
+  }
+ },
+ {
+  "company": "Doctors Without Borders",
+  "title": "Field Operations Coordinator",
+  "url": "https://www.msf.org/seed-field-ops",
+  "location": "Global",
+  "source": "seed",
+  "traits": {
+   "social": 0.7,
+   "motion": 0.1,
+   "visibility": -0.1,
+   "environment": 0.7,
+   "autonomy": 0.6,
+   "north_star": -0.95
+  }
+ },
+ {
+  "company": "Jane Street",
+  "title": "Quantitative Trader",
+  "url": "https://www.janestreet.com/seed-qt",
+  "location": "New York",
+  "source": "seed",
+  "traits": {
+   "social": 0.2,
+   "motion": 0.4,
+   "visibility": 0.0,
+   "environment": 0.6,
+   "autonomy": 0.1,
+   "north_star": 0.95
+  }
+ },
+ {
+  "company": "GitLab",
+  "title": "Senior Product Manager, Remote-first",
+  "url": "https://about.gitlab.com/jobs/seed-pm",
+  "location": "Remote",
+  "source": "seed",
+  "traits": {
+   "social": 0.6,
+   "motion": 0.3,
+   "visibility": 0.3,
+   "environment": 0.0,
+   "autonomy": 0.7,
+   "north_star": 0.1
+  }
+ },
+ {
+  "company": "Singapore GovTech",
+  "title": "Software Engineer, Public Sector",
+  "url": "https://www.tech.gov.sg/careers/seed-swe",
+  "location": "Singapore",
+  "source": "seed",
+  "traits": {
+   "social": 0.0,
+   "motion": -0.5,
+   "visibility": -0.4,
+   "environment": -0.95,
+   "autonomy": 0.4,
+   "north_star": -0.6
+  }
+ },
+ {
+  "company": "Vercel",
+  "title": "Developer Advocate",
+  "url": "https://vercel.com/careers/seed-devrel",
+  "location": "Remote",
+  "source": "seed",
+  "traits": {
+   "social": 0.8,
+   "motion": 0.5,
+   "visibility": 0.95,
+   "environment": 0.2,
+   "autonomy": 0.0,
+   "north_star": 0.0
+  }
+ },
+ {
+  "company": "Netflix",
+  "title": "Engineering Manager, Streaming Platform",
+  "url": "https://jobs.netflix.com/seed-em",
+  "location": "Los Gatos",
+  "source": "seed",
+  "traits": {
+   "social": 0.7,
+   "motion": 0.4,
+   "visibility": 0.5,
+   "environment": 0.0,
+   "autonomy": 0.8,
+   "north_star": 0.5
+  }
+ },
+ {
+  "company": "Figma",
+  "title": "Freelance Brand Illustrator (Contract)",
+  "url": "https://www.figma.com/careers/seed-illustrator",
+  "location": "Remote",
+  "source": "seed",
+  "traits": {
+   "social": -0.4,
+   "motion": -0.6,
+   "visibility": 0.3,
+   "environment": 0.5,
+   "autonomy": -0.9,
+   "north_star": -0.2
+  }
+ },
+ {
+  "company": "McKinsey & Company",
+  "title": "Associate Consultant",
+  "url": "https://www.mckinsey.com/careers/seed-associate",
+  "location": "Multiple",
+  "source": "seed",
+  "traits": {
+   "social": 0.8,
+   "motion": 0.7,
+   "visibility": 0.7,
+   "environment": 0.3,
+   "autonomy": 0.6,
+   "north_star": 0.7
+  }
+ },
+ {
+  "company": "Wikimedia Foundation",
+  "title": "Site Reliability Engineer",
+  "url": "https://wikimediafoundation.org/seed-sre",
+  "location": "Remote",
+  "source": "seed",
+  "traits": {
+   "social": -0.7,
+   "motion": -0.7,
+   "visibility": -0.8,
+   "environment": -0.2,
+   "autonomy": 0.1,
+   "north_star": -0.8
+  }
+ },
+ {
+  "company": "DBS Bank",
+  "title": "Relationship Manager, Wealth",
+  "url": "https://www.dbs.com/careers/seed-rm",
+  "location": "Singapore",
+  "source": "seed",
+  "traits": {
+   "social": 0.9,
+   "motion": 0.8,
+   "visibility": 0.4,
+   "environment": -0.5,
+   "autonomy": 0.3,
+   "north_star": 0.6
+  }
+ },
+ {
+  "company": "Figma",
+  "title": "Staff Frontend Engineer",
+  "url": "https://example.com/seed-15-staff-frontend-engineer",
+  "location": "Remote",
+  "source": "seed",
+  "traits": {
+   "social": -0.5,
+   "motion": -0.7,
+   "visibility": -0.2,
+   "environment": -0.2,
+   "autonomy": 0.3,
+   "north_star": 0.2
+  }
+ },
+ {
+  "company": "Glossier",
+  "title": "Growth Marketing Lead",
+  "url": "https://example.com/seed-16-growth-marketing-lead",
+  "location": "New York",
+  "source": "seed",
+  "traits": {
+   "social": 0.8,
+   "motion": 0.9,
+   "visibility": 0.7,
+   "environment": 0.2,
+   "autonomy": 0.3,
+   "north_star": 0.7
+  }
+ },
+ {
+  "company": "Cloudflare",
+  "title": "Site Reliability Engineer",
+  "url": "https://example.com/seed-17-site-reliability-enginee",
+  "location": "Remote",
+  "source": "seed",
+  "traits": {
+   "social": -0.7,
+   "motion": -0.7,
+   "visibility": -0.7,
+   "environment": -0.3,
+   "autonomy": 0.0,
+   "north_star": -0.2
+  }
+ },
+ {
+  "company": "Snowflake",
+  "title": "Enterprise Sales Director",
+  "url": "https://example.com/seed-18-enterprise-sales-directo",
+  "location": "Chicago",
+  "source": "seed",
+  "traits": {
+   "social": 0.95,
+   "motion": 0.95,
+   "visibility": 0.6,
+   "environment": 0.1,
+   "autonomy": 0.4,
+   "north_star": 0.85
+  }
+ },
+ {
+  "company": "Duolingo",
+  "title": "UX Researcher",
+  "url": "https://example.com/seed-19-ux-researcher",
+  "location": "Pittsburgh",
+  "source": "seed",
+  "traits": {
+   "social": 0.6,
+   "motion": -0.2,
+   "visibility": 0.0,
+   "environment": 0.1,
+   "autonomy": 0.3,
+   "north_star": -0.4
+  }
+ },
+ {
+  "company": "Spotify",
+  "title": "Data Scientist, Personalization",
+  "url": "https://example.com/seed-20-data-scientist-personali",
+  "location": "Stockholm",
+  "source": "seed",
+  "traits": {
+   "social": -0.4,
+   "motion": -0.5,
+   "visibility": -0.3,
+   "environment": -0.2,
+   "autonomy": 0.2,
+   "north_star": 0.2
+  }
+ },
+ {
+  "company": "Linear",
+  "title": "Product Designer",
+  "url": "https://example.com/seed-21-product-designer",
+  "location": "Remote",
+  "source": "seed",
+  "traits": {
+   "social": 0.1,
+   "motion": -0.4,
+   "visibility": 0.2,
+   "environment": 0.2,
+   "autonomy": -0.2,
+   "north_star": 0.0
+  }
+ },
+ {
+  "company": "Stealth AI (YC)",
+  "title": "Founding Engineer",
+  "url": "https://example.com/seed-22-founding-engineer",
+  "location": "San Francisco",
+  "source": "seed",
+  "traits": {
+   "social": 0.1,
+   "motion": -0.2,
+   "visibility": 0.2,
+   "environment": 0.95,
+   "autonomy": -0.3,
+   "north_star": 0.3
+  }
+ },
+ {
+  "company": "Stripe",
+  "title": "Technical Writer, API Docs",
+  "url": "https://example.com/seed-23-technical-writer-api-doc",
+  "location": "Remote",
+  "source": "seed",
+  "traits": {
+   "social": -0.5,
+   "motion": -0.5,
+   "visibility": -0.6,
+   "environment": -0.3,
+   "autonomy": 0.0,
+   "north_star": 0.0
+  }
+ },
+ {
+  "company": "Notion",
+  "title": "Customer Success Manager",
+  "url": "https://example.com/seed-24-customer-success-manager",
+  "location": "San Francisco",
+  "source": "seed",
+  "traits": {
+   "social": 0.85,
+   "motion": 0.3,
+   "visibility": 0.1,
+   "environment": -0.1,
+   "autonomy": 0.6,
+   "north_star": -0.2
+  }
+ },
+ {
+  "company": "Two Sigma",
+  "title": "Quantitative Researcher",
+  "url": "https://example.com/seed-25-quantitative-researcher",
+  "location": "New York",
+  "source": "seed",
+  "traits": {
+   "social": -0.6,
+   "motion": 0.1,
+   "visibility": -0.4,
+   "environment": 0.4,
+   "autonomy": 0.0,
+   "north_star": 0.9
+  }
+ },
+ {
+  "company": "The Linux Foundation",
+  "title": "Community Manager",
+  "url": "https://example.com/seed-26-community-manager",
+  "location": "Remote",
+  "source": "seed",
+  "traits": {
+   "social": 0.9,
+   "motion": 0.4,
+   "visibility": 0.7,
+   "environment": 0.2,
+   "autonomy": 0.1,
+   "north_star": -0.6
+  }
+ },
+ {
+  "company": "Datadog",
+  "title": "Engineering Manager",
+  "url": "https://example.com/seed-27-engineering-manager",
+  "location": "Boston",
+  "source": "seed",
+  "traits": {
+   "social": 0.7,
+   "motion": 0.4,
+   "visibility": 0.5,
+   "environment": 0.0,
+   "autonomy": 0.8,
+   "north_star": 0.5
+  }
+ },
+ {
+  "company": "Nike",
+  "title": "Brand Designer",
+  "url": "https://example.com/seed-28-brand-designer",
+  "location": "Portland",
+  "source": "seed",
+  "traits": {
+   "social": 0.2,
+   "motion": -0.3,
+   "visibility": 0.6,
+   "environment": 0.3,
+   "autonomy": -0.1,
+   "north_star": 0.2
+  }
+ },
+ {
+  "company": "Flexport",
+  "title": "Operations Analyst",
+  "url": "https://example.com/seed-29-operations-analyst",
+  "location": "Amsterdam",
+  "source": "seed",
+  "traits": {
+   "social": -0.2,
+   "motion": -0.4,
+   "visibility": -0.5,
+   "environment": -0.6,
+   "autonomy": 0.3,
+   "north_star": 0.1
+  }
+ }
+]

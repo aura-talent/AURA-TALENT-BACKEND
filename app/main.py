@@ -7,7 +7,7 @@ from fastapi.security import APIKeyHeader
 
 from . import storage
 from .config import settings
-from .routers import applications, career, jobs, resume, scan, users, salary, stats, comm_templates
+from .routers import applications, career, jobs, resume, scan, users, salary, stats, animal, comm_templates
 from .employer import router as employer_router
 from .employer.scheduler import run_forever as run_auto_job_scheduler
 from .middleware import LoggingMiddleware
@@ -70,6 +70,7 @@ app.include_router(applications.router, prefix="/api/v1", dependencies=deps)
 app.include_router(users.router, prefix="/api/v1", dependencies=deps)
 app.include_router(career.router, prefix="/api/v1", dependencies=deps)
 app.include_router(stats.router, prefix="/api/v1", dependencies=deps)
+app.include_router(animal.router, prefix="/api/v1", dependencies=deps)
 app.include_router(employer_router, prefix="/api/v1", dependencies=deps)
 app.include_router(comm_templates.router, prefix="/api/v1", dependencies=deps)
 

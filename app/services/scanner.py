@@ -7,23 +7,45 @@ extend with more providers as needed.
 """
 
 import asyncio
+import logging
 import re
 
 import httpx
 import yaml
 
+from pathlib import Path
 from ..config import settings
+
+logger = logging.getLogger(__name__)
 
 _TIMEOUT = 10
 _CONCURRENCY = 10
 
 
 def load_portals() -> dict:
-    path = settings.career_ops_root / "portals.yml"
-    if not path.exists():
-        path = settings.career_ops_root / "templates" / "portals.example.yml"
-    with open(path) as f:
-        return yaml.safe_load(f)
+    repo_root = Path(__file__).resolve().parents[2]
+    candidates = [
+        # Explicit deployment override (PORTALS_YML_PATH env var) takes
+        # priority — lets ops drop the personalized file anywhere without
+        # touching code.
+        *([Path(settings.portals_yml_path)] if settings.portals_yml_path else []),
+        settings.career_ops_root / "portals.yml",
+        repo_root / "portals.yml",
+        # Bundled generic template ships with this repo, so it's always
+        # present after a plain `git clone` even when the personalized
+        # portals.yml (gitignored, user data) was never deployed.
+        repo_root / "templates" / "portals.example.yml",
+    ]
+    for p in candidates:
+        if p.exists():
+            with open(p) as f:
+                return yaml.safe_load(f)
+    logger.error("load_portals: none of these paths exist: %s", candidates)
+    raise FileNotFoundError(
+        "Could not locate portals.yml or the bundled templates/portals.example.yml "
+        "fallback — check server logs for the exact paths that were tried."
+    )
+
 
 
 # ── Providers (mirror providers/greenhouse.mjs, ashby.mjs, lever.mjs) ──
@@ -119,8 +141,12 @@ def _passes_location_filter(location: str, cfg: dict | None) -> bool:
 async def scan(companies: list[str] | None = None,
                title_keywords: list[str] | None = None,
                location_keywords: list[str] | None = None) -> dict:
-    portals = load_portals()
+    try:
+        portals = load_portals()
+    except Exception as e:
+        return {"total": 0, "jobs": [], "errors": [f"Portal scan configuration error: {e}"]}
     tf = portals.get("title_filter") or {}
+
     positive = title_keywords or tf.get("positive") or []
     negative = tf.get("negative") or []
     

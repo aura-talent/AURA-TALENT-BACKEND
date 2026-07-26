@@ -6,6 +6,7 @@ from typing import Optional, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
+from ..llm import extract_text as extract_llm_text
 from ..llm import get_llm
 from ..prompts import (
     COVER_LETTER_GENERATE_SYSTEM,
@@ -88,7 +89,7 @@ async def suggest_node(state: SuggestState) -> dict:
          f"## Resume\n\n{state['resume_md']}\n\n"
          f"## Target job description\n\n{state['jd_text']}"),
     ])
-    return {"suggestions_markdown": msg.content}
+    return {"suggestions_markdown": extract_llm_text(msg)}
 
 
 def build_suggest_graph():

@@ -58,5 +58,35 @@ def get_llm(temperature: float = 0.2):
         timeout=settings.llm_timeout_seconds,
         max_retries=settings.llm_max_retries,
     )
+    """Model factory for Google Vertex AI / Gemini via MODEL_NAME +
+    GOOGLE_APPLICATION_CREDENTIALS (or GOOGLE_API_KEY for AI Studio). Only the
+    Google provider packages are installed — no other provider is wired up.
+    Users never supply keys — all server env vars."""
+    logger.info(f"Initializing LLM: {settings.model_name} (temp={temperature})")
+    llm = init_chat_model(settings.model_name, temperature=temperature)
     logger.info(f"✅ LLM initialized: {settings.model_name}")
     return llm
+
+
+def extract_text(message: Any) -> str:
+    """Normalize an AIMessage's .content into a plain string.
+
+    Most providers return content as a str, but some (notably Gemini via
+    langchain_google_vertexai) return a list of content blocks instead,
+    e.g. [{"type": "text", "text": "..."}], especially once thinking/
+    citation metadata is present. Downstream Pydantic schemas expect a
+    plain str, so collapse block lists into their concatenated text here
+    rather than at every call site.
+    """
+    content = message.content
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict) and block.get("type") == "text":
+                parts.append(block.get("text", ""))
+        return "".join(parts)
+    return str(content)

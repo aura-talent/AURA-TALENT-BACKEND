@@ -41,7 +41,7 @@ The prompts in `app/prompts.py` are distilled from `modes/_shared.md` and `modes
 cd backend
 # Install dependencies with uv (recommended)
 uv sync
-cp .env.example .env   # fill in ANTHROPIC_API_KEY and BACKEND_API_KEY
+cp .env.example .env   # fill in GOOGLE_API_KEY (or Vertex AI vars) and BACKEND_API_KEY
 uv run uvicorn app.main:app --reload --port 8000
 
 # Or use traditional venv (legacy)
@@ -68,9 +68,9 @@ curl -s -X POST http://localhost:8000/api/v1/jobs/evaluate \
 
 ## Design notes & limitations
 
-- **API keys are server-side only.** Users never supply model keys; you bill them separately. `MODEL_NAME` switches provider (`anthropic:claude-sonnet-4-6`, `openai:gpt-...`) without code changes.
+- **API keys are server-side only.** Users never supply model keys; you bill them separately. `MODEL_NAME` selects the Google model (`google_genai:gemini-3.5-flash`, `google_vertexai:gemini-3.5-flash`, ...) without code changes. Other providers would need their `langchain-*` package added back to `pyproject.toml`.
 - **JD fetching is plain HTTP.** Greenhouse/Lever/Ashby-hosted pages work; JS-rendered pages return a 422 telling the user to paste the JD text. The CLI uses Playwright for this — add a Playwright fetch fallback if you need it.
-- **Comp research (Block D) and layoff search (Block G)** run without live web search in this version — the LLM states what it can't verify rather than inventing data. Wire in a search tool (e.g. Tavily, or Anthropic's web search tool) as a graph node to restore parity with the CLI.
+- **Comp research (Block D) and layoff search (Block G)** run without live web search in this version — the LLM states what it can't verify rather than inventing data. Wire in a search tool (e.g. Tavily) as a graph node to restore parity with the CLI.
 - **Ethical guardrails carried over:** scores below 3.5 come back with an explicit recommendation against applying; nothing is ever auto-submitted.
 - **Before charging users:** replace the shared `X-API-Key` with per-user auth (JWT/OAuth), add rate limiting and per-user token metering, and move SQLite to Postgres if you expect concurrency.
 # Test auto-deploy Thu Jun 11 18:36:29 +08 2026
