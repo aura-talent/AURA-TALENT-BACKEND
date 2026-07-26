@@ -3,7 +3,7 @@
 FastAPI + LangGraph web backend wrapping the [career-ops](https://github.com/santifer/career-ops) job-search logic, so non-developers can use it from a website instead of a CLI.
 
 ## What it exposes
-
+ 
 All endpoints under `/api/v1`, authenticated with an `X-API-Key` header (shared secret from `.env` — replace with real per-user auth before going to production).
 
 | Endpoint | Method | What it does |
