@@ -21,14 +21,14 @@ jobs:
         id: get-ip
         run: |
           # Use the current VM IP
-          echo "vm_ip=34.132.193.54" >> $GITHUB_OUTPUT
+          echo "vm_ip=34.122.2.25" >> $GITHUB_OUTPUT
 
       - name: Configure SSH
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.GCP_SSH_PRIVATE_KEY }}" > ~/.ssh/gcp_key
           chmod 600 ~/.ssh/gcp_key
-          ssh-keyscan -H 34.132.193.54 >> ~/.ssh/known_hosts
+          ssh-keyscan -H 34.122.2.25 >> ~/.ssh/known_hosts
 
       - name: Sync Vertex AI & Scraper credentials
         env:
