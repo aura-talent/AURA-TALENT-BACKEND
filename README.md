@@ -1,4 +1,4 @@
-# career-ops backend
+# career-ops backend 
 
 FastAPI + LangGraph web backend wrapping the [career-ops](https://github.com/santifer/career-ops) job-search logic, so non-developers can use it from a website instead of a CLI.
 
