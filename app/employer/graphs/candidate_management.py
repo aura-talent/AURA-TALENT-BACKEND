@@ -79,7 +79,7 @@ def _score_suggestion(c: dict, job_id: str | None) -> SuggestedActionOut:
 
 async def _offer_selection_decision(qualifying: list[dict], target_count: int) -> OfferSelectionOut:
     """One structured-output call ranking an already-above-threshold pool and
-    picking the top `target_count` for offer — same pattern as
+    picking the top `target_count` to shortlist — same pattern as
     hr_supervisor.py's _routing_decision (LLM picks WHAT, deterministic code
     in services/auto_shortlist.py executes the mutation)."""
     payload = [
@@ -112,13 +112,18 @@ async def _auto_shortlist_actions(job: dict, ctx: dict) -> tuple[list[SuggestedA
     calls this after checking automation_level itself. Returns one
     already-DONE announcement suggestion per mutated candidate (these are
     facts about a completed mutation, not an open ask — see
-    JobActivityFeed.tsx / the Audit Trail page, which is where they surface)."""
+    JobActivityFeed.tsx / the Audit Trail page, which is where they surface).
+
+    This is the last thing automation does unattended: it moves picks into the
+    shortlist stage and stops. Choosing who gets an offer, and advancing the
+    job into the offer phase, are both the employer's (see
+    pipeline_engine.AUTOMATION_HANDOFF_PHASE)."""
     from ..services import auto_shortlist, pipeline_engine
 
     job_id = job["id"]
     progress = pipeline_engine.phase_progress_for(job, job.get("pipeline_phase"))
     if progress["metric"] != "selected":
-        return []
+        return [], set()
 
     applications = ctx.get("applications") or []
     evaluations = ctx.get("evaluations") or []
@@ -148,11 +153,15 @@ async def _auto_shortlist_actions(job: dict, ctx: dict) -> tuple[list[SuggestedA
         if e.get("wlc_score") is not None
     }
     apps_by_candidate = {a["candidate_user_id"]: a for a in applications}
+    # Anyone Aura already shortlisted on an earlier sweep is out of the pool —
+    # they're neither rejected nor selected_for_offer, so without this check
+    # they'd be re-ranked and re-shortlisted every 60s (see already_shortlisted).
     qualifying_ids = [
         cid for cid, score in scores_by_candidate.items()
         if score >= threshold
         and (app := apps_by_candidate.get(cid))
         and not app.get("is_rejected") and not app.get("selected_for_offer")
+        and not auto_shortlist.already_shortlisted(job, app)
     ]
 
     if len(qualifying_ids) >= progress["targetCount"]:
@@ -163,17 +172,20 @@ async def _auto_shortlist_actions(job: dict, ctx: dict) -> tuple[list[SuggestedA
             for cid in qualifying_ids
         ]
         selection = await _offer_selection_decision(qualifying, progress["targetCount"])
-        result = auto_shortlist.apply_offer_selection(
-            job, [apps_by_candidate[cid] for cid in qualifying_ids], selection.selected_candidate_ids,
+        rationales = selection.rationale_by_candidate
+        result = auto_shortlist.apply_shortlist_selection(
+            job, [apps_by_candidate[cid] for cid in qualifying_ids],
+            selection.selected_candidate_ids, rationales,
         )
-        touched_ids.update(result["selected"])
+        touched_ids.update(result["shortlisted"])
         touched_ids.update(result["rejected"])
-        for cid in result["selected"]:
+        for cid in result["shortlisted"]:
             name = users_by_id.get(cid, {}).get("full_name") or "Candidate"
             announcements.append(SuggestedActionOut(
                 kind="candidate_shortlisted", agent="candidate-management", status="done",
-                title=f"Shortlisted {name} for offer",
-                body=selection.reasoning or "Ranked among the top candidates for this role's offer target.",
+                title=f"Shortlisted {name}",
+                body=rationales.get(cid) or selection.reasoning
+                or "Ranked among the top candidates for this role.",
                 payload={"job_id": job_id, "candidate_user_id": cid, "wlc_score": scores_by_candidate.get(cid)},
             ))
         for cid in result["rejected"]:
@@ -181,7 +193,7 @@ async def _auto_shortlist_actions(job: dict, ctx: dict) -> tuple[list[SuggestedA
             announcements.append(SuggestedActionOut(
                 kind="candidate_auto_rejected", agent="candidate-management", status="done",
                 title=f"Auto-rejected {name}",
-                body="The offer target was already filled by higher-ranked candidates.",
+                body="The shortlist was filled by higher-ranked candidates.",
                 payload={"job_id": job_id, "candidate_user_id": cid},
             ))
 

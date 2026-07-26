@@ -4,9 +4,9 @@ A single tool-calling agent (langgraph.prebuilt.create_react_agent) grounded
 in the employer-wide context. Two tool tiers:
 
   READ / SAFE-ACT (run immediately, no confirmation): get_overview, get_job,
-  get_candidate, create_job, update_job, score_candidate, source_candidates —
-  none of these contact a candidate or change what's visible to them, so
-  there's nothing to confirm.
+  get_candidate, create_job, update_job, create_headhunter, assign_headhunter,
+  score_candidate, source_candidates — none of these contact a candidate or
+  change what's visible to them, so there's nothing to confirm.
 
   PROPOSE (never executes): propose_email / propose_offer draft an email via
   the shared communication writer and stage it as a suggested_actions row —
@@ -19,6 +19,8 @@ Built fresh per request (not a module-level singleton like the other graphs)
 because its tools close over employer_id and a per-turn proposed_action_ids
 list the router reads after invoking.
 """
+
+from datetime import date
 
 from langchain_core.tools import tool
 
@@ -38,6 +40,17 @@ def _threshold_note(job: dict) -> str:
     if score is None:
         return ""
     return f" Candidates need a score of {score:g}+ to be considered for an offer."
+
+
+def _timeline_note(job_id: str) -> str:
+    """State the drafted plan's timeline back in the confirmation, same reason
+    as _threshold_note — so the employer sees the dates that actually landed,
+    whether from their own wording or the planner's default."""
+    plan = storage.get_job_plan(job_id)
+    if not plan or not plan.get("target_start_date"):
+        return ""
+    start, fill = plan["target_start_date"], plan.get("target_fill_date")
+    return f" Targeting a start of {start}" + (f" and a fill by {fill}." if fill else ".")
 
 
 _EMAIL_KIND_TO_SUGGESTION_KIND = {
@@ -76,8 +89,9 @@ def build_hr_chat_agent(employer_id: str):
         brief: str,
         full_automation: bool = False,
         minimum_offer_score: float | None = None,
+        target_start_date: str | None = None,
     ) -> str:
-        """Create a brand-new job listing from a short hiring brief (e.g. "Senior software engineer, backend, remote, $130-170k"). Aura drafts the title, description, salary band, keywords and interview questions, then creates the job immediately — no separate confirmation needed. Set full_automation=True ONLY when the employer explicitly asks for automation/auto: the job is created Active with automation_level='auto', so Aura's pipeline agents sweep and act on it automatically. Otherwise it's created as a manual Draft for the employer to review and publish. Set minimum_offer_score (0-100) whenever the employer names a minimum score/match a candidate must reach to be considered for an offer (e.g. "minimum score of 70", "only shortlist above 65") — anyone evaluated below it is auto-rejected during the Evaluation phase; leave it unset to use the system default of 60. Reversible — a job can be edited or deleted afterward."""
+        """Create a brand-new job listing from a short hiring brief (e.g. "Senior software engineer, backend, remote, $130-170k"). Aura drafts the title, description, salary band, keywords and interview questions, then creates the job immediately. Only call this once the employer has confirmed minimum score, automation level, and timeline (per the system instructions) — or explicitly said to use defaults. Set full_automation=True ONLY when the employer explicitly asks for automation/auto: the job is created Active with automation_level='auto', so Aura's pipeline agents sweep and act on it automatically. Otherwise it's created as a manual Draft for the employer to review and publish. Set minimum_offer_score (0-100) to the minimum score/match a candidate must reach to be considered for an offer — anyone evaluated below it is auto-rejected during the Evaluation phase; leave it unset only if the employer explicitly said to use the system default of 60. Set target_start_date ("YYYY-MM-DD") to when they want hiring to start — resolve relative wording ("next month", "in two weeks") against today's date given in your system instructions; leave unset only if they said to use today. Reversible — a job can be edited or deleted afterward."""
         from .job_intake import job_intake_graph
         from ..services import pipeline_engine
         if minimum_offer_score is not None and not 0 <= minimum_offer_score <= 100:
@@ -86,6 +100,15 @@ def build_hr_chat_agent(employer_id: str):
                 f"{minimum_offer_score} isn't. Ask the employer which they meant, "
                 "then call create_job again."
             )
+        if target_start_date is not None:
+            try:
+                date.fromisoformat(target_start_date)
+            except ValueError:
+                return (
+                    f"target_start_date has to be YYYY-MM-DD — {target_start_date!r} "
+                    "isn't. Resolve the employer's wording to a real date, then call "
+                    "create_job again."
+                )
         result = await job_intake_graph.ainvoke({
             "mode": "aura", "brief": brief, "question_count": 5,
         })
@@ -117,7 +140,7 @@ def build_hr_chat_agent(employer_id: str):
         fields = {k: v for k, v in fields.items() if v is not None}
         job = storage.create_job(fields)
         from ..services.job_creation import bootstrap_new_job
-        job = await bootstrap_new_job(job, employer_id)
+        job = await bootstrap_new_job(job, employer_id, target_start_date=target_start_date)
         if full_automation:
             # The first phase ("planning") is always a manual-only gate — it
             # has no measurable target by design, the same as jobs created
@@ -135,16 +158,17 @@ def build_hr_chat_agent(employer_id: str):
                 job = advanced["job"]
             return (
                 f'Created "{job["title"]}" — Active with full automation (auto), now in the '
-                f'**{job["pipeline_phase"]}** phase.{_threshold_note(job)} Aura drafted a starter '
-                "workforce plan and, if a matching headhunter was available, assigned one "
-                "already. Aura's pipeline agents will source, score, and draft actions for it "
-                "automatically as targets are met; you still confirm any candidate contact "
-                "before it sends."
+                f'**{job["pipeline_phase"]}** phase.{_threshold_note(job)}{_timeline_note(job["id"])} '
+                "Aura drafted a starter workforce plan and, if a matching headhunter was "
+                "available, assigned one already. Aura's pipeline agents will source, score, "
+                "and draft actions for it automatically as targets are met; you still confirm "
+                "any candidate contact before it sends."
             )
         return (
             f'Created "{job["title"]}" as a manual Draft, with a starter workforce plan already '
-            f'drafted.{_threshold_note(job)} Review and publish it from your Job listings when '
-            "you're ready — nothing else runs automatically until then."
+            f'drafted.{_threshold_note(job)}{_timeline_note(job["id"])} Review and publish it '
+            "from your Job listings when you're ready — nothing else runs automatically until "
+            "then."
         )
 
     @tool
@@ -215,6 +239,84 @@ def build_hr_chat_agent(employer_id: str):
 
         return f'Updated "{updated["title"]}" — {changed}.{note}'
 
+    def _owned_job(job_id: str) -> dict | None:
+        job = storage.get_job(job_id)
+        return job if job and job.get("employer_id") == employer_id else None
+
+    def _sourcing_note(job: dict) -> str:
+        """What actually happens next depends on the job's automation, so say
+        which one it is instead of a vague 'it'll start soon'."""
+        if job.get("automation_level") == "auto" and job.get("status") == "Active":
+            return " Sourcing starts on the next automation sweep (within a minute)."
+        return " This job is manual, so ask me to source candidates when you want it to run."
+
+    @tool
+    async def create_headhunter(
+        name: str,
+        persona: str,
+        focus_areas: list[str],
+        job_id: str | None = None,
+        activate: bool = True,
+    ) -> str:
+        """Create an AI headhunter — a sourcing persona that scans the shared talent pool for candidates worth evaluating — and optionally assign it to a job in the same step.
+
+        YOU write the persona from what the employer described. `name` is a short human-sounding label for the specialist (e.g. "People-Person Scout"). `persona` is 1-3 sentences, written as instructions to that headhunter, describing what it values and how it reads a resume — it is fed verbatim to the sourcing agent, so make it opinionated and specific; two headhunters with different personas should surface different people. `focus_areas` is 3-8 concrete searchable terms (skills, domains, traits) matched against a job's keywords when Aura auto-assigns headhunters, so use the words that would actually appear on a resume, not abstractions.
+
+        Pass job_id to assign it immediately — resolve the job by name with get_overview first. activate=True (default) creates it Active so it starts sourcing; pass False only if the employer wants to review it first, since a Draft headhunter does nothing. Internal-only and reversible: sourcing reads the talent pool and writes evaluations, it never contacts a candidate."""
+        if not name.strip() or not persona.strip():
+            return "A headhunter needs both a name and a persona — write both, then call create_headhunter again."
+        if not focus_areas:
+            return "focus_areas can't be empty — without them this headhunter can't be matched to a job. Give 3-8 concrete terms."
+
+        job = None
+        if job_id:
+            job = _owned_job(job_id)
+            if not job:
+                return "No job with that id on this account — call get_overview to list the jobs, then use the id from there."
+
+        hh = storage.create_headhunter({
+            "employer_id": employer_id,
+            "name": name.strip(),
+            "persona": persona.strip(),
+            "focus_areas": focus_areas,
+            "status": "Active" if activate else "Draft",
+        })
+
+        state = "Active" if activate else "a Draft"
+        if not job:
+            tail = (
+                " Assign it to a job whenever you're ready."
+                if activate
+                else " Activate and assign it when you're ready — a Draft headhunter doesn't source."
+            )
+            return f'Created **{hh["name"]}** ({state}), focused on {", ".join(focus_areas)}.{tail}'
+
+        storage.assign_headhunter_to_job(job["id"], hh["id"])
+        tail = _sourcing_note(job) if activate else " It's a Draft, so it won't source until you activate it."
+        return (
+            f'Created **{hh["name"]}** ({state}) and assigned it to **{job["title"]}**. '
+            f'Focus: {", ".join(focus_areas)}.{tail}'
+        )
+
+    @tool
+    async def assign_headhunter(headhunter_id: str, job_id: str) -> str:
+        """Put an EXISTING headhunter on a job, leaving any headhunters already assigned to that job in place. Get both ids from get_overview. Use create_headhunter instead when the employer wants a new one. Internal-only and reversible — no candidate is contacted."""
+        hh = storage.get_headhunter(headhunter_id)
+        if not hh or hh.get("employer_id") != employer_id:
+            return "No headhunter with that id on this account — call get_overview to list the roster."
+        job = _owned_job(job_id)
+        if not job:
+            return "No job with that id on this account — call get_overview to list the jobs."
+
+        if not storage.assign_headhunter_to_job(job_id, headhunter_id):
+            return f'**{hh["name"]}** is already assigned to **{job["title"]}** — nothing to change.'
+        if hh.get("status") != "Active":
+            return (
+                f'Assigned **{hh["name"]}** to **{job["title"]}**, but it\'s {hh["status"]} '
+                "so it won't source anything until it's activated."
+            )
+        return f'Assigned **{hh["name"]}** to **{job["title"]}**.{_sourcing_note(job)}'
+
     @tool
     async def score_candidate(job_id: str, candidate_user_id: str) -> str:
         """Trigger (or re-run) evaluation scoring for a candidate on a job. Internal-only, safe to run immediately — does not contact the candidate."""
@@ -274,7 +376,9 @@ def build_hr_chat_agent(employer_id: str):
 
     tools = [
         get_overview, get_job, get_candidate, create_job, update_job,
+        create_headhunter, assign_headhunter,
         score_candidate, source_candidates, propose_email, propose_offer,
     ]
-    agent = create_react_agent(get_llm(), tools, prompt=HR_CHAT_SYSTEM)
+    system_prompt = f"{HR_CHAT_SYSTEM}\n\nToday's date: {date.today().isoformat()}."
+    agent = create_react_agent(get_llm(), tools, prompt=system_prompt)
     return agent, proposed_action_ids

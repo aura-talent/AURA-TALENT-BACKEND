@@ -240,14 +240,31 @@ class NextActionsOut(BaseModel):
     actions: list[SuggestedActionOut] = Field(default_factory=list)
 
 
+class ShortlistPick(BaseModel):
+    """One shortlisted candidate + why they were picked. The rationale is
+    persisted per-application (job_applications.shortlist_reason, 0005) and
+    shown to the employer on the Shortlists page, so it has to stand on its
+    own as a sentence about THIS candidate."""
+    candidate_user_id: str
+    rationale: str
+
+
 class OfferSelectionOut(BaseModel):
     """LLM structured output for auto-shortlisting (0004): ranks a pool of
-    already-above-threshold candidates and picks the top `target_count` for
-    offer. The deterministic auto_shortlist.apply_offer_selection() executes
-    the mutation — this model only carries the judgment call, same boundary
-    as RoutingDecision/NextActionsOut elsewhere in this codebase."""
-    selected_candidate_ids: list[str] = Field(default_factory=list)
+    already-above-threshold candidates and picks the top `target_count` to
+    shortlist. The deterministic auto_shortlist.apply_shortlist_selection()
+    executes the mutation — this model only carries the judgment call, same
+    boundary as RoutingDecision/NextActionsOut elsewhere in this codebase."""
+    picks: list[ShortlistPick] = Field(default_factory=list)
     reasoning: str
+
+    @property
+    def selected_candidate_ids(self) -> list[str]:
+        return [p.candidate_user_id for p in self.picks]
+
+    @property
+    def rationale_by_candidate(self) -> dict[str, str]:
+        return {p.candidate_user_id: p.rationale for p in self.picks if p.rationale}
 
 
 # ── employer profile import / onboarding (service, not an agent) ─────────

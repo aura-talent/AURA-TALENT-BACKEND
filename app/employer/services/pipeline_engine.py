@@ -21,6 +21,30 @@ from .. import storage
 
 DEFAULT_MINIMUM_OFFER_SCORE = 60
 
+# Where automation hands back to the human (0005). Aura works a job on its own
+# up to and including Evaluation — score-filtering applicants and shortlisting
+# the survivors (services/auto_shortlist.py) — and stops there. Deciding which
+# shortlisted candidate actually gets an offer is the employer's call, made on
+# the Shortlists page, so no automated trigger may cross OUT of this phase, no
+# matter how thoroughly its target is met. A human advancing by hand is
+# unaffected: this limits what automation does unattended, not what the
+# employer can do.
+AUTOMATION_HANDOFF_PHASE = "evaluation"
+
+# The one trigger that represents a person clicking. Everything else
+# ("hr-supervisor", "auto", "chat-agent", …) is automation and is held at the
+# handoff. Kept as a constant so the two places that compare against it can't
+# drift.
+MANUAL_TRIGGER = "manual"
+
+
+def _is_handoff_phase(phase_id: str | None) -> bool:
+    """Phase ids are employer-editable free text (they come straight off
+    employer_profiles.hiring_pipeline_phases), so match loosely — a profile
+    carrying "Evaluation" or " evaluation" must still hit the gate rather than
+    silently fail open."""
+    return (phase_id or "").strip().lower() == AUTOMATION_HANDOFF_PHASE
+
 # Fallback phase order when an employer has no configured hiring_pipeline_phases
 # (matches the employer_profiles.hiring_pipeline_phases default in 0001 and
 # defaultPipelinePhases in the frontend's data.ts).
@@ -73,7 +97,13 @@ def _unprocessed_qualifying_count(job: dict) -> int:
     finished, so the phase can't be 'met' no matter how high selected count
     already is — otherwise a job could advance while candidates are still
     sitting in limbo between the threshold check and the offer-selection
-    call (see services/auto_shortlist.py)."""
+    call (see services/auto_shortlist.py).
+
+    Candidates already sitting ON the shortlist don't count as limbo: they've
+    been processed, and they're exactly what the employer is meant to work
+    through on the Shortlists page before advancing."""
+    from . import auto_shortlist  # local: auto_shortlist imports this module
+
     job_id = job["id"]
     threshold = job.get("minimum_offer_score")
     if threshold is None:
@@ -90,6 +120,8 @@ def _unprocessed_qualifying_count(job: dict) -> int:
     for cid, score in scores_by_candidate.items():
         app = apps_by_candidate.get(cid)
         if not app or app.get("is_rejected") or app.get("selected_for_offer"):
+            continue
+        if auto_shortlist.already_shortlisted(job, app):
             continue
         if score >= threshold:
             count += 1
@@ -140,8 +172,9 @@ def advance_phase(
     require_target: bool = False,
 ) -> dict:
     """Move a job to `to_phase` (default: the next phase in the employer's
-    order) and append a job_phase_events audit row. When require_target is set
-    (auto-advance), refuses unless the current phase's target metric is met.
+    order) and append a job_phase_events audit row. Refuses to leave
+    AUTOMATION_HANDOFF_PHASE for any non-human trigger (see below), and when
+    require_target is set, refuses unless the current phase's target is met.
 
     Returns {advanced, ...}: advanced=False with a reason when gated/terminal,
     else the updated job + from/to phases.
@@ -154,6 +187,19 @@ def advance_phase(
         return {"advanced": False, "reason": "terminal_phase", "current_phase": current}
     if target_phase == current:
         return {"advanced": False, "reason": "already_at_phase", "current_phase": current}
+
+    # The handoff is gated on WHO is asking, not on require_target. require_target
+    # is caller-supplied and defaults to False, so gating on it let any client
+    # opt out of the handoff just by omitting the flag — which is exactly how
+    # the browser's old client-side auto-advance walked jobs straight from
+    # Evaluation into the offer phase. Trigger can't be spoofed into "manual"
+    # by accident: every automated caller sets its own name.
+    if _is_handoff_phase(current) and trigger != MANUAL_TRIGGER:
+        return {
+            "advanced": False,
+            "reason": "automation_handoff",
+            "current_phase": current,
+        }
 
     if require_target:
         prog = phase_progress_for(job, current)
