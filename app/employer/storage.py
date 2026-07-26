@@ -122,6 +122,21 @@ def set_job_headhunters(job_id: str, headhunter_ids: list[str]) -> None:
         ]).execute()
 
 
+def assign_headhunter_to_job(job_id: str, headhunter_id: str) -> bool:
+    """Add ONE headhunter to a job without disturbing the others already on
+    it. The set_* functions above replace the whole set, which is right for
+    the editor (it submits the full selection) and wrong for anything adding
+    a single assignment — the chat agent creating a headhunter mid-conversation
+    must not silently unassign the rest. Returns False if it was already
+    assigned, so callers can say so rather than claiming they did something."""
+    if headhunter_id in list_job_headhunter_ids(job_id):
+        return False
+    supabase.table("job_headhunters").insert({
+        "job_id": job_id, "headhunter_id": headhunter_id,
+    }).execute()
+    return True
+
+
 def set_headhunter_jobs(headhunter_id: str, job_ids: list[str]) -> None:
     """Replace the full assignment set for one headhunter (the editor's
     per-headhunter mirror of set_job_headhunters)."""
@@ -212,13 +227,22 @@ def list_applications_for_job(job_id: str) -> list[dict]:
 def move_application_stage(
     application: dict, to_stage: str, is_rejected: bool,
     changed_by: str | None, note: str | None,
+    shortlist_reason: str | None = None,
 ) -> dict:
     """Update the application's stage + is_rejected snapshot and append the
     audit event. The caller resolves is_rejected from the owning job's
-    job_application_stages config — this function just persists."""
+    job_application_stages config — this function just persists.
+
+    shortlist_reason (0005) rides along on the same write when the move IS the
+    shortlisting: `note` explains the move in the event log, this explains the
+    pick on the row itself, where the Shortlists page can read it per-row
+    without replaying events."""
+    fields = {"stage": to_stage, "is_rejected": is_rejected, "updated_at": _now()}
+    if shortlist_reason is not None:
+        fields["shortlist_reason"] = shortlist_reason
     res = (
         supabase.table("job_applications")
-        .update({"stage": to_stage, "is_rejected": is_rejected, "updated_at": _now()})
+        .update(fields)
         .eq("id", application["id"]).execute()
     )
     supabase.table("job_application_stage_events").insert({
@@ -231,11 +255,32 @@ def move_application_stage(
     return res.data[0]
 
 
-def set_selected_for_offer(application_id: str, selected: bool) -> dict:
+EMPLOYER_ACTOR = "employer"
+
+
+def set_selected_for_offer(
+    application_id: str, selected: bool, *, actor: str = "system",
+) -> dict:
     """Set/clear the selected_for_offer snapshot flag (0004) — orthogonal to
     `stage`, same "app code decides, never derived" pattern as is_rejected.
-    Used by both the deterministic auto-shortlist step and a human's manual
-    "Select for offer" action."""
+
+    CHOOSING someone for an offer is the employer's decision alone, made on the
+    Shortlists page. No agent, sweep or automation may set this — Aura's job
+    ends at moving candidates into the shortlist stage
+    (services/auto_shortlist.py). Passing actor is therefore mandatory to turn
+    it ON, so any future caller has to state who it is and gets a loud failure
+    rather than quietly reintroducing the bug where automation pre-picked the
+    employer's offer candidates and skipped them past the decision entirely.
+
+    Clearing it (selected=False) is unrestricted — that only ever undoes a
+    selection, which is what cleanup and repair paths need.
+    """
+    if selected and actor != EMPLOYER_ACTOR:
+        raise PermissionError(
+            f"selected_for_offer may only be set by the employer (actor={EMPLOYER_ACTOR!r}), "
+            f"got actor={actor!r}. Automation shortlists candidates into the shortlist "
+            "stage; the employer chooses who gets an offer from the Shortlists page."
+        )
     res = (
         supabase.table("job_applications")
         .update({

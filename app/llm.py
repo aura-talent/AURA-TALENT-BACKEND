@@ -36,6 +36,28 @@ class LoggingCallbackHandler(BaseCallbackHandler):
 
 @lru_cache(maxsize=4)
 def get_llm(temperature: float = 0.2):
+    """Provider-agnostic model factory. Default provider is Google Vertex AI /
+    Gemini (free tier) via MODEL_NAME + GOOGLE_APPLICATION_CREDENTIALS; other
+    providers (ANTHROPIC_API_KEY / OPENAI_API_KEY) work too by changing
+    MODEL_NAME. Users never supply keys — all server env vars.
+
+    timeout/max_retries are set explicitly because every provider client
+    defaults to an UNBOUNDED wait (timeout=None) and a generous retry count.
+    Nothing downstream imposes its own deadline, so a single stalled request
+    would hang its caller indefinitely — and since the scheduler sweep and the
+    seeding script both await evaluations one after another, one stuck call
+    silently stops everything queued behind it.
+    """
+    logger.info(
+        f"Initializing LLM: {settings.model_name} (temp={temperature}, "
+        f"timeout={settings.llm_timeout_seconds}s, retries={settings.llm_max_retries})"
+    )
+    llm = init_chat_model(
+        settings.model_name,
+        temperature=temperature,
+        timeout=settings.llm_timeout_seconds,
+        max_retries=settings.llm_max_retries,
+    )
     """Model factory for Google Vertex AI / Gemini via MODEL_NAME +
     GOOGLE_APPLICATION_CREDENTIALS (or GOOGLE_API_KEY for AI Studio). Only the
     Google provider packages are installed — no other provider is wired up.

@@ -9,6 +9,7 @@ frontend (replacing its hardcoded setTimeout).
 """
 
 import json
+from datetime import date
 from typing import Optional, TypedDict
 
 from langgraph.graph import END, START, StateGraph
@@ -25,6 +26,7 @@ class PlanningState(TypedDict, total=False):
     job_id: Optional[str]
     brief: Optional[str]
     title: Optional[str]
+    target_start_date: Optional[str]
     # loaded (build_job_context result when job_id given)
     context: Optional[dict]
     # produced
@@ -71,11 +73,17 @@ async def draft_plan(state: PlanningState) -> dict:
         else "No company-size context available."
     )
 
+    stated_start = state.get("target_start_date")
+
     llm = get_llm().with_structured_output(PlanDraftOut)
     result = await llm.ainvoke([
         ("system", PLANNING_SYSTEM),
         ("human", f"""
             title: {title}
+
+            today's date: {date.today().isoformat()}
+
+            employer-stated target start date (if any): {stated_start or "none stated — default target_start_date to today"}
 
             job context:
             {job_block}
@@ -89,6 +97,11 @@ async def draft_plan(state: PlanningState) -> dict:
             freeform brief (if any): {state.get("brief") or "none"}
         """),
     ])
+    # The employer's own stated date, when given, is authoritative — don't
+    # trust the LLM's copy of it (see bootstrap_new_job's deterministic
+    # override for the same reasoning).
+    if stated_start:
+        result.target_start_date = stated_start
     return {"draft": result}
 
 

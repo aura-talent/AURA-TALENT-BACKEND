@@ -135,11 +135,12 @@ async def move_stage(application_id: str, body: StageMove, background_tasks: Bac
 
 @router.post("/{application_id}/select-for-offer")
 async def select_for_offer(application_id: str, body: SelectForOffer):
-    """Manually mark/unmark an application as selected for offer — works for
-    any automation_level. For 'auto' jobs this happens automatically (see
-    graphs/candidate_management.py's auto-shortlist step); this endpoint is
-    what lets a human do the same thing on a manual job, or override an auto
-    job's pick. The Offer Console only shows selected_for_offer=true rows."""
+    """Mark/unmark an application as selected for offer. This endpoint is the
+    ONLY way selected_for_offer is ever turned on — it is the employer's
+    decision, made on the Shortlists page, for jobs at any automation_level.
+    Automation deliberately stops one step short: it moves candidates into the
+    shortlist stage (services/auto_shortlist.py) and hands over. The Offer
+    Console only shows selected_for_offer=true rows."""
     verify_user_role(body.employer_id, ["employer"])
     application = storage.get_application(application_id)
     if not application:
@@ -148,7 +149,9 @@ async def select_for_offer(application_id: str, body: SelectForOffer):
     if not job or job["employer_id"] != body.employer_id:
         raise HTTPException(403, "Application belongs to another employer's job")
 
-    updated = storage.set_selected_for_offer(application_id, body.selected)
+    updated = storage.set_selected_for_offer(
+        application_id, body.selected, actor=storage.EMPLOYER_ACTOR,
+    )
     logger.info(
         f"{'⭐' if body.selected else '🚫'} select-for-offer {application_id}: {body.selected}"
     )

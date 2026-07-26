@@ -10,7 +10,10 @@ configured `dimension_weights` on the job, so every job gets a score even
 before the employer tunes the formula.
 """
 
+import asyncio
+
 from ..graphs.evaluate_candidate import evaluate_candidate_graph
+from ...config import settings
 from ...logging_config import logger
 
 DEFAULT_DIMENSION_WEIGHTS = {
@@ -76,17 +79,33 @@ async def trigger_wlc_evaluation(
             f"🔄 WLC start: candidate={candidate_user_id} job={job_id} source={source}"
         )
 
-        await evaluate_candidate_graph.ainvoke({
-            "job_id": job_id,
-            "candidate_user_id": candidate_user_id,
-            "source": source,
-            "headhunter_id": headhunter_id,
-        })
+        # Hard ceiling on the whole graph. get_llm() already bounds each
+        # request, but this is the backstop that guarantees the caller gets
+        # control back — callers run these SEQUENTIALLY (the scheduler sweep,
+        # scripts/seed_applications_for_job.py), so one candidate that never
+        # returns silently starves every candidate queued behind it.
+        await asyncio.wait_for(
+            evaluate_candidate_graph.ainvoke({
+                "job_id": job_id,
+                "candidate_user_id": candidate_user_id,
+                "source": source,
+                "headhunter_id": headhunter_id,
+            }),
+            timeout=settings.evaluation_timeout_seconds,
+        )
 
         logger.info(
             f"✅ WLC done: candidate={candidate_user_id} job={job_id}"
         )
 
+    except asyncio.TimeoutError:
+        # Loud and specific: an unscored candidate keeps a job below its
+        # shortlist target forever, so this must not look like a quiet skip.
+        logger.error(
+            f"⏱️  WLC TIMEOUT after {settings.evaluation_timeout_seconds}s: "
+            f"candidate={candidate_user_id} job={job_id} — left unscored, "
+            "re-run scoring for this candidate to unblock the shortlist."
+        )
     except Exception as exc:
         logger.error(
             f"❌ WLC error: candidate={candidate_user_id} job={job_id} "

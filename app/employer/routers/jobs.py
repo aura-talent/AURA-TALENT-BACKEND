@@ -108,9 +108,27 @@ async def get_job(job_id: str, employer_id: str):
 
 @router.patch("/{job_id}")
 async def update_job(job_id: str, employer_id: str, body: JobUpdate):
-    _require_owned_job(job_id, employer_id)
+    job = _require_owned_job(job_id, employer_id)
     fields = _job_fields(body)
-    job = storage.update_job(job_id, fields) if fields else storage.get_job(job_id)
+
+    # A phase change is never just another column write: it has to leave a
+    # job_phase_events row so the audit trail and the live activity feed can
+    # see it. Route it through the engine instead of letting it ride along in
+    # the generic update (which used to move a job with no audit and no gate).
+    # trigger="manual" because reaching this endpoint means a human edited the
+    # job — the job editor's "close this role" is the real caller.
+    to_phase = fields.pop("pipeline_phase", None)
+
+    if fields:
+        job = storage.update_job(job_id, fields)
+    if to_phase and to_phase != job.get("pipeline_phase"):
+        result = pipeline_engine.advance_phase(
+            job, to_phase=to_phase, trigger="manual", changed_by=employer_id,
+            note="Changed from the job editor.",
+        )
+        if result.get("advanced"):
+            job = result["job"]
+
     if body.headhunter_ids is not None:
         storage.set_job_headhunters(job_id, body.headhunter_ids)
     return _with_relations(job)

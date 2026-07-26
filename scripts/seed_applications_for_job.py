@@ -75,6 +75,7 @@ async def seed(job_id: str, count: int, skip_evaluation: bool) -> None:
     picks = eligible[:count]
 
     created = 0
+    unscored: list[str] = []
     for candidate in picks:
         label = candidate.get("full_name") or candidate.get("email") or candidate["id"]
         try:
@@ -90,8 +91,24 @@ async def seed(job_id: str, count: int, skip_evaluation: bool) -> None:
             await trigger_wlc_evaluation(
                 job_id=job_id, candidate_user_id=candidate["id"], source="applied",
             )
+            # trigger_wlc_evaluation never raises (it logs and returns), so
+            # check the row rather than trusting the call to have worked — an
+            # unscored candidate never counts toward the shortlist target and
+            # is otherwise invisible until you go looking for it.
+            ev = emp_storage.get_evaluation(job_id, candidate["id"])
+            if not ev or ev.get("wlc_score") is None:
+                unscored.append(label)
+                print("      !! left UNSCORED (timeout or error — see the log above)")
 
     print(f"\nDone — {created}/{len(picks)} applications created on {job['title']!r}.")
+    if unscored:
+        print(
+            f"\n⚠️  {len(unscored)} candidate(s) were not scored: {', '.join(unscored)}\n"
+            "   They do NOT count toward this job's shortlist target, so the "
+            "auto-shortlist will keep waiting until they're scored.\n"
+            "   Re-run this script's evaluation for them, or ask Aura in chat "
+            "to score them."
+        )
     if job["automation_level"] == "auto":
         print(
             "Job is in auto mode — the next scheduler sweep (every 60s) will "

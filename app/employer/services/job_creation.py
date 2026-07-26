@@ -11,11 +11,16 @@ from .. import storage
 from .headhunter_match import pick_headhunter
 
 
-async def bootstrap_new_job(job: dict, employer_id: str) -> dict:
+async def bootstrap_new_job(
+    job: dict, employer_id: str, target_start_date: str | None = None,
+) -> dict:
     """1. Auto-generate AND auto-persist a workforce plan — always, regardless
     of automation_level (a plan is informational, never a pipeline mutation,
     so there's no reason to gate it the way auto-advance/auto-assign are
     gated). Best-effort: a failed draft must not fail job creation itself.
+    target_start_date, when the employer stated one, is passed through to
+    planning_graph, which sets it on the draft deterministically rather than
+    trusting the LLM's copy of it (see planning.py's draft_plan).
 
     2. Auto-pick a headhunter from the existing Active roster — only for
     'auto' jobs (mirrors the identical guard in hr_supervisor.py's
@@ -27,7 +32,10 @@ async def bootstrap_new_job(job: dict, employer_id: str) -> dict:
     job_id = job["id"]
 
     try:
-        result = await planning_graph.ainvoke({"employer_id": employer_id, "job_id": job_id})
+        result = await planning_graph.ainvoke({
+            "employer_id": employer_id, "job_id": job_id,
+            "target_start_date": target_start_date,
+        })
         draft = result.get("draft")
         if draft:
             storage.upsert_job_plan(job_id, {

@@ -16,6 +16,18 @@ load_dotenv(override=True)
 class Settings(BaseSettings):
     model_name: str = "google_genai:gemini-3.5-flash"
 
+    # Per-request ceiling on a single LLM call. The provider clients default to
+    # timeout=None — an unbounded wait — so one stalled request hangs whatever
+    # awaited it forever: a scheduler sweep, or the seed script's sequential
+    # evaluation loop, which then never reaches the candidates behind it.
+    llm_timeout_seconds: float = 90.0
+    # Provider default is 6, which multiplies any stall by six. Two is enough
+    # to ride out a transient blip without turning a bad minute into an hour.
+    llm_max_retries: int = 2
+    # Hard ceiling on one candidate's full evaluation (two LLM calls plus DB
+    # work). Backstop for anything the per-request timeout can't see.
+    evaluation_timeout_seconds: float = 240.0
+
     backend_api_key: str = "change-me"
     career_ops_root: Path = Path(__file__).resolve().parents[2]
     # Explicit override for where the personalized portals.yml lives in a given
