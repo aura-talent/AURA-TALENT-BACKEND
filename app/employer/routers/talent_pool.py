@@ -12,10 +12,16 @@ router = APIRouter(prefix="/talent-pool", tags=["employer:talent-pool"])
 
 @router.get("")
 async def browse_pool(employer_id: str, job_id: str | None = None):
-    """The shared marketplace: every candidate + resume. With job_id, each
-    entry carries that job's evaluation for the candidate (if any); without
-    it, each entry carries all of the candidate's evaluations across this
-    employer's jobs, so the pool can be ranked either way."""
+    """The shared marketplace: every candidate + resume, one entry per
+    person. With job_id, each entry carries that job's evaluation for the
+    candidate (if any); without it, each entry carries all of the
+    candidate's evaluations across this employer's jobs, so the pool can be
+    ranked either way.
+
+    Evaluations are collected over the entry's alias_ids, not just its own
+    id: storage.list_talent_pool folds duplicate user rows for one email
+    into a single entry, and a score recorded against one of those
+    duplicates still belongs to that person."""
     verify_user_role(employer_id, ["employer"])
     pool = storage.list_talent_pool()
     if job_id:
@@ -24,7 +30,8 @@ async def browse_pool(employer_id: str, job_id: str | None = None):
             raise HTTPException(404, "Job not found")
         evals = {e["candidate_user_id"]: e for e in storage.list_evaluations_for_job(job_id)}
         for entry in pool:
-            entry["evaluation"] = evals.get(entry["id"])
+            found = (evals.get(uid) for uid in entry.get("alias_ids") or [entry["id"]])
+            entry["evaluation"] = next((e for e in found if e), None)
     else:
         jobs = {j["id"]: j for j in storage.list_jobs(employer_id)}
         by_candidate: dict[str, list[dict]] = {}
@@ -32,7 +39,11 @@ async def browse_pool(employer_id: str, job_id: str | None = None):
             ev["job_title"] = jobs[ev["job_id"]]["title"]
             by_candidate.setdefault(ev["candidate_user_id"], []).append(ev)
         for entry in pool:
-            entry["evaluations"] = by_candidate.get(entry["id"], [])
+            entry["evaluations"] = [
+                ev
+                for uid in entry.get("alias_ids") or [entry["id"]]
+                for ev in by_candidate.get(uid, [])
+            ]
     return pool
 
 

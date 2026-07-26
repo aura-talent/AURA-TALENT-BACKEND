@@ -486,7 +486,22 @@ def list_candidate_rows(employer_id: str) -> list[dict]:
 
 def list_talent_pool() -> list[dict]:
     """All candidates + their resume, the shared marketplace view. Two
-    queries merged in Python (no FK-embedding assumptions on legacy tables)."""
+    queries merged in Python (no FK-embedding assumptions on legacy tables).
+
+    One person, one entry. `users` accumulated duplicate rows for the same
+    email over repeated signups and seed runs, and every consumer of this
+    list suffered for it — the talent pool showed the same person three
+    times, and a headhunter could 'find' all three copies and burn three
+    evaluations on one candidate.
+
+    Rows sharing an email collapse into a canonical entry. Preference goes
+    to a row that has a resume (evaluation needs one), then to the oldest
+    row (the account the person actually signed up with). Every id folded
+    in is listed on `alias_ids`, canonical first, so callers that need the
+    person's full history — see routers/talent_pool.browse_pool — can look
+    up evaluations recorded against any of their duplicates. Rows with no
+    email are never merged; there is nothing to match them on.
+    """
     users = (
         supabase.table("users").select("id, email, full_name, avatar_url, created_at")
         .eq("role", "candidate").execute()
@@ -498,10 +513,27 @@ def list_talent_pool() -> list[dict]:
         .in_("user_id", [u["id"] for u in users]).execute()
     ).data or []
     by_user = {r["user_id"]: r for r in resumes}
-    return [
-        {**u, "resume": by_user.get(u["id"])}
-        for u in users
-    ]
+
+    def rank(user: dict) -> tuple:
+        # Lower sorts first: a resume beats no resume, then oldest wins.
+        return (0 if by_user.get(user["id"]) else 1, user.get("created_at") or "")
+
+    groups: dict[str, list[dict]] = {}
+    for user in users:
+        email = (user.get("email") or "").strip().lower()
+        key = email or f"id:{user['id']}"
+        groups.setdefault(key, []).append(user)
+
+    pool = []
+    for members in groups.values():
+        members.sort(key=rank)
+        canonical = members[0]
+        pool.append({
+            **canonical,
+            "resume": by_user.get(canonical["id"]),
+            "alias_ids": [m["id"] for m in members],
+        })
+    return pool
 
 
 def get_candidate_resume_md(candidate_user_id: str) -> str | None:
