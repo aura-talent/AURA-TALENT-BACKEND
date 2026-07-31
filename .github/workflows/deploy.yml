@@ -28,7 +28,11 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.GCP_SSH_PRIVATE_KEY }}" > ~/.ssh/gcp_key
           chmod 600 ~/.ssh/gcp_key
-          ssh-keyscan -H 34.122.2.25 >> ~/.ssh/known_hosts
+          # No ssh-keyscan here: every ssh/scp call below already passes
+          # -o StrictHostKeyChecking=no, so known_hosts is never consulted.
+          # Keeping it just made a flaky/blocked keyscan (5s timeout against
+          # this VM from GitHub-hosted runners) fail the whole deploy for no
+          # security benefit.
 
       - name: Sync Vertex AI & Scraper credentials
         env:
